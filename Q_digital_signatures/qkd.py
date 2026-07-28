@@ -131,7 +131,8 @@ class QKDHandlerBob:
         await assend(self.writer, I)
 
         key = [x2[i] for i in I]
-        logging.debug(f"[S] X: {key[:10]}, length:{len(key)}")
+        #logging.debug(f"[S] X: {key[:10]}, length:{len(key)}")
+        logging.debug(f"[C] key after basis reconciliation: {key[:50]}, length: {len(key)}")
         del x2
 
         logging.info("Measuring QBER")
@@ -179,8 +180,10 @@ class QKDHandlerBob:
         # receive Salice_x, Salice_y
         # Error correction phase
         logging.debug("[S] wait for syndrome")
-        Salice_key = await asrecv(self.reader)
-        alice_key = await asrecv(self.reader)
+        response = await asrecv(self.reader)
+        Salice_key = response['syndromes']
+        Toeplitz_seed = response['Toeplitz_seed']
+        alice_key = await asrecv(self.reader) # only for debugging, pls remove when finalising
         
         # For info/debugging only receive Xx, Xy
         # [Xx,Xy] = await asrecv(self.reader)
@@ -197,7 +200,7 @@ class QKDHandlerBob:
         logging.debug(f"[S] half_key before truncating: {half_key[:10]}, length: {len(half_key)}")
 
         # compute LDPC syndrome
-        final_key = np.zeros(0, dtype=np.uint8)
+        EC_key = np.zeros(0, dtype=np.uint8)
         half_key=half_key[:eccblock*(len(half_key)//eccblock)]
         half_key=np.array(half_key, dtype=np.uint8)
         logging.info(f"half_key of length {len(half_key)}")
@@ -217,13 +220,14 @@ class QKDHandlerBob:
                 logging.debug("[S] BP done")
                 Salice_key.pop(0)  # remove the used syndrome
                 #logging.debug(f"[S] Decoded tmp :{tmp[:10]}, length:{len(tmp)} ")
-                final_key = np.concatenate([final_key, tmp])
-                logging.debug(f"[S] Decoded Xx_Xy: {final_key[:10]},length:{len(final_key)} ")
+                EC_key = np.concatenate([EC_key, tmp])
+                logging.debug(f"[S] Decoded Xx_Xy: {EC_key[:10]},length:{len(EC_key)} ")
                 leak+=Hldpc.shape[0]
 
             except Exception as e:
                 logging.error(f"[S] End LDPC decoding: {e}")
                 
+        final_key, s = apply_privacy_amplification(EC_key, measured_qber, length, leak, Toeplitz_seed)
         logging.debug("[S] Error Correction ends")
         time_ecc = delta_time(time1)
 
@@ -294,8 +298,8 @@ class QKDHandlerAlice:
             logging.error(f"[C] Unknown mode: {self.mode}")
             return
         '''
-        logging.debug(f"[C] x1: {x1[:10]}, length: {len(x1)}")
-        logging.debug(f"[C] theta1: {theta1[:10]}, length: {len(theta1)}")
+        logging.debug(f"[C] x1: {x1[:50]}, length: {len(x1)}")
+        logging.debug(f"[C] theta1: {theta1[:50]}, length: {len(theta1)}")
         logging.info(f"[S] len x_alice: {len(x1)}, theta_alice: {len(theta1)}") 
 
         
@@ -320,6 +324,7 @@ class QKDHandlerAlice:
 
 
         key = [x1[i] for i in I]
+        logging.debug(f"[C] key after basis reconciliation: {key[:50]}, length: {len(key)}")
         logging.debug(f"[C] X: {key[:10]},length:{len(key)}")
         del x1
 
@@ -383,12 +388,18 @@ class QKDHandlerAlice:
 
 
         #logging.debug(f"[C] syndrome alice Sx:{Salice_x[0][:10]} ,length:{len(Salice_x)}")
-       # logging.debug(f"[C] syndrome alice Sy:{Salice_y[0][:10]} ,length:{len(Salice_y)}")
+        #logging.debug(f"[C] syndrome alice Sy:{Salice_y[0][:10]} ,length:{len(Salice_y)}")
+
+        logging.info("Computing final key and Toeplitz seed from Privacy amplification")
+        print(half_key[:10], measured_qber, mid, leak)
+        final_key, s = apply_privacy_amplification(half_key, measured_qber, mid, leak)
 
         logging.debug("[C] send syndromes to Bob")
         # send syndromes to the server
-        await assend(self.writer, Salice_key)
-        await assend(self.writer, key)
+        await assend(self.writer, {'syndromes':Salice_key, 'Toeplitz_seed': s})
+        await assend(self.writer, key) # only for debugging, pls remove when finalising
+
+        
         
         time_ecc = delta_time(time1)
 
@@ -396,6 +407,7 @@ class QKDHandlerAlice:
 
 
         logging.info(f"Computed key: {key[:10]}")
-        return half_key
+        #return half_key
+        return final_key
 
         

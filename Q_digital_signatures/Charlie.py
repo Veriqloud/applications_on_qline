@@ -58,6 +58,8 @@ class QDSHandlerCharlie:
             
             #self.n = request["n"]
             #self.bH = request["bH"]
+            self.n = 5
+            self.bH = 17
 
             indices = list(range(self.n))
             random.shuffle(indices)
@@ -112,8 +114,8 @@ if __name__ == "__main__":
     logging.basicConfig(
         filename=log_filename,
         format="%(asctime)s - %(levelname)s - %(message)s",
-        level=logging.INFO, 
-        #level=logging.DEBUG, 
+        #level=logging.INFO, 
+        level=logging.DEBUG, 
         force=True
     )
     asyncio.run(main())

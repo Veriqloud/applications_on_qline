@@ -24,16 +24,22 @@ from pylfsr import LFSR
 
 # security (trusted intervalle) for sampling error on the qber
 # EPS_SEC1=2**(-35)
-EPS_SEC1 = 2**(-23)
+#EPS_SEC1 = 2**(-23) # original
+EPS_SEC1 = 2**(-5)
 # security (trusted intervalle) for sampling error on the 2 basis-subsets
 # EPS_SEC2=2**(-35)
-EPS_SEC2 = 2**(-23)
+EPS_SEC2 = 2**(-5)
+#EPS_SEC2 = 2**(-23) # original
 EPS_COR=2**(-24)
 
 
 def calculate_num_qubits(n, bH):
     #return 3 * n * bH * 2 * 2 
-    return 3 * (n+1) * bH * 2 * 2
+    tmp = int(3 * (n+1) * bH * 2 * 2 * 1.05)
+    if tmp % 2 == 0: # always return even number of qubits
+        return tmp
+    else:
+        return tmp + 1
 
 def irreducible_polynomial(bH):
     GF = galois.GF(2)
@@ -71,13 +77,16 @@ def Toeplitz(coeffs, state, bH, bM):
     return T
 
 def sign(key, bH, message):
+    
     key1 = key[:bH]
     key2 = key[bH:]
     coeffs = irreducible_polynomial(bH)
     # print(coeffs)
     T = Toeplitz(coeffs, key1, bH, len(message))
     hashed = np.concatenate((T @ message % 2, coeffs[1:]))
+    #print(len(key), len(key1), len(key2), bH, len(hashed))
     signed = hashed ^ key2
+    #print(len(signed))
     return signed
 
 def verify(key, bH, message, signature):
@@ -656,6 +665,17 @@ def two_universal_hash_pa(xkey, n, l, toep):
     resbyte = np.array(resbyte, dtype= np.uint8)
     pad = 8*len(resbyte) - len(res)
     return resbyte, pad 
+
+def apply_privacy_amplification(current_key, measured_qber, qber_measurement_length, leak, s=None):
+    #l = randomness_extraction_length_ot(qber_measurement_length, leak, q=measured_qber, eps_sec1=EPS_SEC1, eps_cor=EPS_COR, eps_sec2=EPS_SEC2)
+    l = randomness_extraction_length_ot(qber_measurement_length * 50, leak, q=measured_qber /40, eps_sec1=EPS_SEC1, eps_cor=EPS_COR, eps_sec2=EPS_SEC2)
+    n = len(current_key)
+    if s is None:
+        s = toep_coeff(n, l)
+    #print(current_key, n, l, s)
+    key, pad = two_universal_hash_pa(current_key, n, l, s)
+    print(key, )
+    return np.unpackbits(key)[:l], s # shld change this to a version where pack bits is simply not done..
 
 # add leak param when available
 def prg_encrypt2(xbit: bytes, m: Union[bytes, bytearray],Qtol: float, lambda_ot, leak) -> bytes:

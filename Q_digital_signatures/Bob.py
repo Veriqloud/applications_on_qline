@@ -41,6 +41,8 @@ class QDSHandlerBob():
         
     
     async def handle_key_transfer(self, request):
+        self.n = 5
+        self.bH = 17
         reader, writer = await asyncio.open_connection(self.Charlie_host, self.Charlie_port)
         logging.info(f"[C] Connected to {self.Charlie_host}:{self.Charlie_port}")
 
@@ -59,7 +61,7 @@ class QDSHandlerBob():
         writer.close()
         await writer.wait_closed()
 
-        #print("Bob_Charlie", self.Charlie_half)
+        print("Bob_Charlie", self.Charlie_half)
     
 
     def handle_verification(self, request):
@@ -161,8 +163,8 @@ if __name__ == "__main__":
     logging.basicConfig(
         filename=log_filename,
         format="%(asctime)s - %(levelname)s - %(message)s",
-        level=logging.INFO, 
-        #level=logging.DEBUG, 
+        #level=logging.INFO, 
+        level=logging.DEBUG, 
         force=True
     )
     asyncio.run(main())

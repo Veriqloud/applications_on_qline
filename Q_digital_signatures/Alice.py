@@ -52,7 +52,12 @@ class QDSHandlerAlice():
 
         
         logging.info("Processing Alice's keys")
+        self.n = 5
+        self.bH = 17
         Alice_key = [self.Bob_key[i * (3 * self.bH): (i+1) * (3 * self.bH)] for i in range(self.n)] + [self.Charlie_key[i * (3 * self.bH): (i+1) * (3 * self.bH)] for i in range(self.n)]
+        print(len(self.Bob_key), len(self.Charlie_key), 3 * self.bH * self.n)
+        print("test, test")
+        print(Alice_key, self.Bob_key)
         signatures = []
 
         logging.info("Beginning signatures of message")
@@ -102,9 +107,9 @@ class QDSHandlerAlice():
         if self.Bob_key is None:
             logging.info("Protocol Aborted.")
             return
-        
-        print(self.Charlie_key[:10])
-        print(self.Bob_key[:10])
+        print("test")
+        print(self.Charlie_key)
+        print(self.Bob_key)
 
         ### Sign message and send to Bob ###
         logging.info("--- Signing message and sending to Bob ---")
@@ -154,8 +159,8 @@ if __name__ == "__main__":
     logging.basicConfig(
         filename=log_filename,
         format="%(asctime)s - %(levelname)s - %(message)s",
-        level=logging.INFO, 
-        #level=logging.DEBUG, 
+        #level=logging.INFO, 
+        level=logging.DEBUG, 
         force=True
     )
     logging.getLogger('numba').setLevel(logging.WARNING)
