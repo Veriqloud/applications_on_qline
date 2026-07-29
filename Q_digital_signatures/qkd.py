@@ -189,7 +189,7 @@ class QKDHandlerBob:
         Salice_key = response['syndromes']
         Toeplitz_seed = response['Toeplitz_seed']
         alice_key = await asrecv(self.reader) # only for debugging, pls remove when finalising
-        
+        logging.debug("[S] Syndrom received")
         # For info/debugging only receive Xx, Xy
         # [Xx,Xy] = await asrecv(self.reader)
         '''
@@ -232,7 +232,7 @@ class QKDHandlerBob:
             except Exception as e:
                 logging.error(f"[S] End LDPC decoding: {e}")
                 
-        final_key, s = apply_privacy_amplification(EC_key, measured_qber, length, leak, Toeplitz_seed)
+        final_key, s = apply_privacy_amplification(EC_key, measured_qber, len(I), length, leak, Toeplitz_seed)
         logging.debug("[S] Error Correction ends")
         time_ecc = delta_time(time1)
 
@@ -399,7 +399,7 @@ class QKDHandlerAlice:
 
         logging.info("Computing final key and Toeplitz seed from Privacy amplification")
         print(half_key[:10], measured_qber, mid, leak)
-        final_key, s = apply_privacy_amplification(half_key, measured_qber, mid, leak)
+        final_key, s = apply_privacy_amplification(half_key, measured_qber, length, mid, leak)
 
         logging.debug("[C] send syndromes to Bob")
         # send syndromes to the server

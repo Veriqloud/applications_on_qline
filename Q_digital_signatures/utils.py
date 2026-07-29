@@ -52,7 +52,7 @@ def calculate_num_qubits(n, bH):
         return tmp + 1
     '''
     batch_size = 3000
-    num_qubits = 6000000
+    num_qubits = 600000
     num_batches = num_qubits//batch_size
     #return 6000000, 1000, 3000
     return num_qubits, num_batches,batch_size
@@ -239,7 +239,7 @@ def print_csr_size(A):
 def read_matrix(N, Qth):
     logging.info(f"[Matrix] Estimated QBER {Qth}")
     # initialize LDPC parity check
-    if True: #Qth > 0 and Qth < 0.045: 
+    if Qth > 0 and Qth < 0.045: 
         logging.info(f"[Matrix] Using LDPC code for QBER < 0.045 ")
         if N < 1572864 :    
             path = "codes_ldpc/rate_0.33/block_6144_proto_2x6_313422410401.qccsc.mtx"
@@ -682,10 +682,11 @@ def two_universal_hash_pa(xkey, n, l, toep):
     pad = 8*len(resbyte) - len(res)
     return resbyte, pad 
 
-def apply_privacy_amplification(current_key, measured_qber, qber_measurement_length, leak, s=None):
-    l = randomness_extraction_length_ot(qber_measurement_length, leak, q=measured_qber, eps_sec1=EPS_SEC1, eps_cor=EPS_COR, eps_sec2=EPS_SEC2)
+def apply_privacy_amplification(current_key, measured_qber, length, k, leak, s=None):
+    l = randomness_extraction_length_qkd(length, k, leak, q=measured_qber, eps_sec=EPS_SEC1, eps_cor=EPS_COR)
     #l = randomness_extraction_length_ot(qber_measurement_length * 50, leak, q=measured_qber /40, eps_sec1=EPS_SEC1, eps_cor=EPS_COR, eps_sec2=EPS_SEC2)
-    l = randomness_extraction_length_ot(qber_measurement_length * 5, leak, q=measured_qber, eps_sec1=EPS_SEC1, eps_cor=EPS_COR, eps_sec2=EPS_SEC2)
+    #l = randomness_extraction_length_ot(qber_measurement_length * 2, leak, q=measured_qber, eps_sec1=EPS_SEC1, eps_cor=EPS_COR, eps_sec2=EPS_SEC2)
+    l = min(l, 256)
     n = len(current_key)
     if s is None:
         s = toep_coeff(n, l)

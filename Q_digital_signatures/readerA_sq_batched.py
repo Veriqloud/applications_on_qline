@@ -28,7 +28,9 @@ def reader_alice(mode, num_batches, batch_size, path_config):
         logging.info(f"Opening FIFO {angle_fifo}")
         with open(angle_fifo, "rb") as f:
             logging.debug("[Reader A] reading angles")
-            for _ in range(num_batches):
+            for i in range(num_batches):
+                if i % 100 == 0:
+                    print(i)
                 data = read_exactly(f, batch_size)
                 
                 if not data:
