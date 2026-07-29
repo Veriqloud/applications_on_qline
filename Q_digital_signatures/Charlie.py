@@ -39,7 +39,7 @@ class QDSHandlerCharlie:
 
         if request["type"] == "QKD":
             logging.info("--- QKD with Alice ---")
-            QKD_Charlie = QKDHandlerBob(reader, writer, path_config=path_config, mode="hwsim", num_qubits=request["num_qubits"])
+            QKD_Charlie = QKDHandlerBob(reader, writer, path_config=path_config, mode="hwsim", num_qubits=request["num_qubits"], num_batches=request["num_batches"], batch_size=request["batch_size"])
             self.n = request["n"]
             self.bH = request["bH"]
             self.key = await QKD_Charlie.run_protocol()

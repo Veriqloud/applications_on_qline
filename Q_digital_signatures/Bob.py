@@ -26,7 +26,7 @@ class QDSHandlerBob():
         
 
     async def handle_QKD(self, reader, writer, request):
-        QKD_Bob = QKDHandlerBob(reader, writer, path_config, mode=request["mode"], num_qubits=request["num_qubits"])
+        QKD_Bob = QKDHandlerBob(reader, writer, path_config, mode=request["mode"], num_qubits=request["num_qubits"],  num_batches=request["num_batches"], batch_size=request["batch_size"])
         self.n = request["n"]
         self.bH = request["bH"]
         self.key = await QKD_Bob.run_protocol()
@@ -57,6 +57,7 @@ class QDSHandlerBob():
 
         self.Charlie_half = response["Charlie_half"]
         self.Charlie_indices = response["Charlie_indices"]
+        print(self.Charlie_indices)
         
         writer.close()
         await writer.wait_closed()
@@ -64,10 +65,12 @@ class QDSHandlerBob():
         print("Bob_Charlie", self.Charlie_half)
     
 
-    def handle_verification(self, request):
+    async def handle_verification(self, request):
         self.Alice_message = request["message"]
         self.Alice_signatures = request["signatures"]
         logging.info("Processing relevant keys and signatures.")
+        print(request["signatures"])
+        print(self.Charlie_indices)
         relevant_signatures = np.concatenate((self.Alice_signatures[:self.n], [self.Alice_signatures[i] for i in np.array(self.Charlie_indices) + self.n]))
         key = np.concatenate(([self.key[i * (3 * self.bH): (i+1) * (3 * self.bH)] for i in range(self.n)], self.Charlie_half))
         # errors = 0
@@ -107,7 +110,7 @@ class QDSHandlerBob():
         
         elif request["type"] == "SIGNATURES":
             logging.info("--- Signatures received from Alice. Beginning verification. ---")
-            verification = self.handle_verification(request)
+            verification = await self.handle_verification(request)
             if verification == False:
                 logging.info("--- Verification Failed. Transmitting response to Alice. ---")
                 await assend(writer, "Verification Failed.")

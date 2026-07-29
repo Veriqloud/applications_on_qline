@@ -32,14 +32,30 @@ EPS_SEC2 = 2**(-5)
 #EPS_SEC2 = 2**(-23) # original
 EPS_COR=2**(-24)
 
+BATCH_SIZE = 2000
+
+
+def calculate_batches(num_qubits):
+    num_batches = num_qubits // BATCH_SIZE
+    if num_qubits % BATCH_SIZE > 0:
+        num_batches += 1
+
+    return num_batches, BATCH_SIZE 
 
 def calculate_num_qubits(n, bH):
+    '''
     #return 3 * n * bH * 2 * 2 
     tmp = int(3 * (n+1) * bH * 2 * 2 * 1.05)
     if tmp % 2 == 0: # always return even number of qubits
         return tmp
     else:
         return tmp + 1
+    '''
+    batch_size = 3000
+    num_qubits = 6000000
+    num_batches = num_qubits//batch_size
+    #return 6000000, 1000, 3000
+    return num_qubits, num_batches,batch_size
 
 def irreducible_polynomial(bH):
     GF = galois.GF(2)
@@ -223,8 +239,8 @@ def print_csr_size(A):
 def read_matrix(N, Qth):
     logging.info(f"[Matrix] Estimated QBER {Qth}")
     # initialize LDPC parity check
-    if Qth > 0 and Qth < 0.045: 
-        #logging.info(f"[Matrix] Using LDPC code for QBER < 0.045 ")
+    if True: #Qth > 0 and Qth < 0.045: 
+        logging.info(f"[Matrix] Using LDPC code for QBER < 0.045 ")
         if N < 1572864 :    
             path = "codes_ldpc/rate_0.33/block_6144_proto_2x6_313422410401.qccsc.mtx"
             pathpairs_csv = "codes_ldpc/rate_adaptation/rate_adaption_2x6_block_6144.csv"
@@ -252,7 +268,7 @@ def read_matrix(N, Qth):
 
 
     elif Qth >= 0.045 and Qth < 0.086 :
-        #logging.info(f"[Matrix] Using LDPC code for QBER in [0.045, 0.086) ")
+        logging.info(f"[Matrix] Using LDPC code for QBER in [0.045, 0.086) ")
         path = "codes_ldpc/rate_0.5/block_4096_proto_2x4_12131025.qccsc.mtx"
         pathpairs_csv = "codes_ldpc/rate_adaptation/rate_adaption_2x4_block_4096.csv"
         eccblock = 4096
@@ -667,8 +683,9 @@ def two_universal_hash_pa(xkey, n, l, toep):
     return resbyte, pad 
 
 def apply_privacy_amplification(current_key, measured_qber, qber_measurement_length, leak, s=None):
-    #l = randomness_extraction_length_ot(qber_measurement_length, leak, q=measured_qber, eps_sec1=EPS_SEC1, eps_cor=EPS_COR, eps_sec2=EPS_SEC2)
-    l = randomness_extraction_length_ot(qber_measurement_length * 50, leak, q=measured_qber /40, eps_sec1=EPS_SEC1, eps_cor=EPS_COR, eps_sec2=EPS_SEC2)
+    l = randomness_extraction_length_ot(qber_measurement_length, leak, q=measured_qber, eps_sec1=EPS_SEC1, eps_cor=EPS_COR, eps_sec2=EPS_SEC2)
+    #l = randomness_extraction_length_ot(qber_measurement_length * 50, leak, q=measured_qber /40, eps_sec1=EPS_SEC1, eps_cor=EPS_COR, eps_sec2=EPS_SEC2)
+    l = randomness_extraction_length_ot(qber_measurement_length * 5, leak, q=measured_qber, eps_sec1=EPS_SEC1, eps_cor=EPS_COR, eps_sec2=EPS_SEC2)
     n = len(current_key)
     if s is None:
         s = toep_coeff(n, l)

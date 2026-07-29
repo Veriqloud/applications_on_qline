@@ -1,8 +1,10 @@
 import asyncio
 from utils import *
 from extractable_equivocal_commitment.eec import server_eec_dual_compact, client_eec_dual_compact
-from readerA_sq import reader_alice # single thread from readerA
-from readerB_sq import reader_bob # single thread from readerB
+#from readerA_sq import reader_alice # single thread from readerA
+#from readerB_sq import reader_bob # single thread from readerB
+from readerA_sq_batched import reader_alice # single thread from readerA
+from readerB_sq_batched import reader_bob # single thread from readerB
 #from readerA import reader_alice
 #from readerB import reader_bob
 from start_stop import send_stop_command
@@ -27,12 +29,14 @@ from applications_on_qline.Q_oblivious_transfer.async_communication import assen
 #logging.basicConfig(level=logging.DEBUG)
 
 class QKDHandlerBob:
-    def __init__(self, reader, writer, path_config, mode = "hwsim", num_qubits=100, qber = 0.08, csvpath=None):
+    def __init__(self, reader, writer, path_config, mode = "hwsim", num_qubits=100, num_batches=None, batch_size=None, qber = 0.08, csvpath=None):
 
         self.reader = reader
         self.writer = writer
         self.mode = mode
         self.num_qubits = num_qubits
+        self.num_batches = num_batches
+        self.batch_size = batch_size
         self.qber = qber
         self.path_config = path_config
         self.csvpath = csvpath
@@ -62,7 +66,8 @@ class QKDHandlerBob:
         if self.mode == "hwsim" or self.mode == "real":
             logging.debug(f"[S] server start in {self.mode} mode")
             time0=start_time()
-            tmptheta, tmpRes = reader_bob(mode=self.mode, num_qubits=self.num_qubits,  path_config=self.path_config)
+            #num_batches, batch_size = calculate_batches(self.num_qubits)
+            tmptheta, tmpRes = reader_bob(mode=self.mode, num_batches=self.num_batches, batch_size=self.batch_size,  path_config=self.path_config)
             time_to_receive = delta_time(time0)
 
 
@@ -243,12 +248,14 @@ class QKDHandlerBob:
 
 
 class QKDHandlerAlice:
-    def __init__(self, reader, writer, path_config, mode = "hwsim", num_qubits=100, qber = 0.08, socket_reader=None, socket_writer=None, csvpath=None):
+    def __init__(self, reader, writer, path_config, mode = "hwsim", num_qubits=100, num_batches=None, batch_size=None, qber = 0.08, socket_reader=None, socket_writer=None, csvpath=None):
 
         self.reader = reader
         self.writer = writer
         self.mode = mode
         self.num_qubits = num_qubits
+        self.num_batches = num_batches
+        self.batch_size = batch_size
         self.qber = qber
         self.path_config = path_config
         self.socket_reader = socket_reader
@@ -282,8 +289,8 @@ class QKDHandlerAlice:
             logging.debug(f"[C] client starts in {self.mode} mode")
             logging.debug(f"[C] reading angles:")
 
-            
-            tmptheta = reader_alice(mode=self.mode,num_qubits=self.num_qubits, path_config=self.path_config)
+            #num_batches, batch_size = calculate_batches(self.num_qubits)
+            tmptheta = reader_alice(mode=self.mode,num_batches=self.num_batches, batch_size=self.batch_size, path_config=self.path_config)
             logging.info(f"num_qubits: {self.num_qubits}")
             time_to_receive=delta_time(time0)
 

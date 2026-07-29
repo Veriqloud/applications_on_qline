@@ -19,7 +19,7 @@ class QDSHandlerAlice():
         
         self.n = args.num_blocks
         self.bH = args.bH
-        self.num_qubits = calculate_num_qubits(self.n, self.bH)
+        self.num_qubits, self.num_batches, self.batch_size = calculate_num_qubits(self.n, self.bH)
         self.message = [int(i) for i in "1010110110"]
         self.mode = args.mode
         self.Charlie_key = None
@@ -30,9 +30,10 @@ class QDSHandlerAlice():
         reader, writer = await asyncio.open_connection(host, port)
         logging.info(f"[C] Connected to {host}:{port}")
 
-        await assend(writer, {"type": "QKD", "num_qubits": self.num_qubits, "n": self.n, "bH": self.bH, "mode": self.mode})
+        #await assend(writer, {"type": "QKD", "num_qubits": self.num_qubits, "n": self.n, "bH": self.bH, "mode": self.mode})
+        await assend(writer, {"type": "QKD", "num_qubits": self.num_qubits, "num_batches": self.num_batches, "batch_size": self.batch_size, "n": self.n, "bH": self.bH, "mode": self.mode})
         #print(num_qubits)
-        QKD_Alice = QKDHandlerAlice(reader, writer, path_config=path_config, mode=self.mode, num_qubits=self.num_qubits, socket_reader=socket_reader, socket_writer=socket_writer)
+        QKD_Alice = QKDHandlerAlice(reader, writer, path_config=path_config, mode=self.mode, num_qubits=self.num_qubits, num_batches=self.num_batches, batch_size=self.batch_size, socket_reader=socket_reader, socket_writer=socket_writer)
         
         if name == "Charlie":
             self.Charlie_key = await QKD_Alice.run_protocol()
