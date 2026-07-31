@@ -3,12 +3,11 @@ import logging
 import argparse
 import time
 from utils import read_exactly
-# from applications_on_qline.Q_oblivious_transfer.utils import read_exactly
 
 
 def reader_alice(mode, num_batches, batch_size, path_config):
     """Sequentially reads angles from FIFO and returns them."""
-    logging.info("[Reader A] Sequential reader started")
+    logging.info("[Reader A] Sequential reader started.")
     
     with open(path_config, 'r') as f:
         path = json.load(f)
@@ -18,19 +17,22 @@ def reader_alice(mode, num_batches, batch_size, path_config):
     elif mode == "real":
         angle_fifo = path["angle"]["real"]
     else:
-        raise ValueError(f"[Reader A] Unknown mode: {mode}")
+        raise ValueError(f"[Reader A] Unknown mode: {mode}.")
 
+    logging.info(f"[Reader A] Reading {num_batches} batches of size {batch_size}.")
+    logging.debug(f"[Reader A] Since each value packs the data of 2 qubits, {num_batches * batch_size * 2} qubits are to be read.")
+    
     ang_list = []
-    logging.info(f"[Reader A] Reading {num_batches} batches of size {batch_size}")
     start = time.time()
     
     try:
-        logging.info(f"Opening FIFO {angle_fifo}")
+        logging.info(f"[Reader A] Opening FIFO {angle_fifo}.")
         with open(angle_fifo, "rb") as f:
-            logging.debug("[Reader A] reading angles")
+            logging.info(f"[Reader A] Opened FIFO {angle_fifo}. Begin reading bases data.")
             for i in range(num_batches):
-                if i % 100 == 0:
-                    print(i)
+                if i % 100 == 0 or i == (num_batches - 1):
+                    logging.debug(f"Reading batch {i + 1} of data")
+
                 data = read_exactly(f, batch_size)
                 
                 if not data:

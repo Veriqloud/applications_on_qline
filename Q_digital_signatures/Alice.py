@@ -6,10 +6,8 @@ from start_stop import send_start_command
 import argparse
 from utils import Toeplitz, irreducible_polynomial, sign, verify, calculate_num_qubits
 import numpy as np
-
 from datetime import datetime
 
-num_qubits = 300 * 2
 path_config = "config_test/sim/alice/ot.json"
 
 
@@ -27,14 +25,17 @@ class QDSHandlerAlice():
         
     async def run_QKD(self, name, host, port):
         socket_reader, socket_writer = await send_start_command("hwsim", path_config)
-        reader, writer = await asyncio.open_connection(host, port)
-        logging.info(f"[C] Connected to {host}:{port}")
-
-        #await assend(writer, {"type": "QKD", "num_qubits": self.num_qubits, "n": self.n, "bH": self.bH, "mode": self.mode})
-        await assend(writer, {"type": "QKD", "num_qubits": self.num_qubits, "num_batches": self.num_batches, "batch_size": self.batch_size, "n": self.n, "bH": self.bH, "mode": self.mode})
-        #print(num_qubits)
-        QKD_Alice = QKDHandlerAlice(reader, writer, path_config=path_config, mode=self.mode, num_qubits=self.num_qubits, num_batches=self.num_batches, batch_size=self.batch_size, socket_reader=socket_reader, socket_writer=socket_writer)
+        logging.info(f"[Alice][quantum channel] Sent start command for quantum channel.")
         
+        reader, writer = await asyncio.open_connection(host, port)
+        logging.info(f"[Alice][TCP] Connected to {host}:{port}")
+
+        await assend(writer, {"type": "QKD", "num_qubits": self.num_qubits, "num_batches": self.num_batches, "batch_size": self.batch_size, "n": self.n, "bH": self.bH, "mode": self.mode})
+        logging.info(f"[Alice][TCP] Sent QKD request to {name}'s handler. {self.num_qubits} qubits to be used.")
+
+        QKD_Alice = QKDHandlerAlice(reader, writer, path_config=path_config, mode=self.mode, num_qubits=self.num_qubits, num_batches=self.num_batches, batch_size=self.batch_size, socket_reader=socket_reader, socket_writer=socket_writer)
+        logging.info(f"[Alice][QKD] Created Alice's QKD handler object.")
+
         if name == "Charlie":
             self.Charlie_key = await QKD_Alice.run_protocol()
         elif name == "Bob":
@@ -43,39 +44,33 @@ class QDSHandlerAlice():
         writer.close()
         await writer.wait_closed()
         
-
-    
-    
     async def sign(self, host, port):
         # sign doc and send to Bob
         reader, writer = await asyncio.open_connection(host, port)
-        logging.info(f"[C] Connected to {host}:{port}")
+        logging.info(f"[Alice][TCP] Connected to {host}:{port}")
 
         
-        logging.info("Processing Alice's keys")
+        logging.info("--------------- [Alice] Processing Alice's keys ---------------")
         self.n = 5
         self.bH = 17
+        logging.info(f"[Alice] Combining Alice-Bob and Alice-Charlie keys to form {self.n * 2} blocks of {3 * self.bH} bits.")
         Alice_key = [self.Bob_key[i * (3 * self.bH): (i+1) * (3 * self.bH)] for i in range(self.n)] + [self.Charlie_key[i * (3 * self.bH): (i+1) * (3 * self.bH)] for i in range(self.n)]
-        print(len(self.Bob_key), len(self.Charlie_key), 3 * self.bH * self.n)
-        print("test, test")
-        print(Alice_key, self.Bob_key)
-        signatures = []
+        logging.debug(f"Number of blocks formed: {len(Alice_key)}")
+        logging.debug(f"Alice-Bob key length: {len(self.Bob_key)}, Alice-Charlie key length: {len(self.Charlie_key)}, required total length: {2 * 3 * self.n * self.num_batches}")
 
-        logging.info("Beginning signatures of message")
-        for key in Alice_key:
-            signature = sign(key, self.bH,self.message)
-            #print(verify(key, self.bH,self.message, signature))
-            signatures.append(signature)
-        logging.info("Signatures completed")
+        logging.info("--------------- [Alice] Beginning signatures of message ---------------")
+        signatures = [sign(key, self.bH,self.message) for key in Alice_key]
+        logging.info("[Alice] Signatures completed.")
         
-        logging.info("Sending Signatures to Bob")
+        logging.info("--------------- [Alice] Sending Signatures to Bob ---------------")
         await assend(writer, {"type": "SIGNATURES", "message": self.message, "signatures": signatures})
-        logging.info("Signatures sent. Awaiting response")
+        logging.info("[Alice] Signatures sent. Awaiting response.")
         response = await asrecv(reader)
+        
         writer.close()
         await writer.wait_closed()
-        print(response)
-        logging.info(f"Response: {response}")
+
+        logging.info(f"*************** [Alice] Response from Bob: {response} ***************")
         
 
         #writer.close()
@@ -96,34 +91,25 @@ class QDSHandlerAlice():
         logging.info(f"Bob's port: {Bob_port}")
 
         ### QKD with Charlie ###
-        logging.info("--- QKD with Charlie ---")
+        logging.info("=============== [Alice] QKD with Charlie ===============")
         await self.run_QKD("Charlie", Charlie_host, Charlie_port)
         if self.Charlie_key is None:
-            logging.info("Protocol Aborted.")
+            logging.info("[QKD] Protocol Aborted.")
             return
+        logging.info(f"[Alice] Alice-Charlie key: {self.Charlie_key[:10]}, length: {len(self.Charlie_key)}")
         
         ### QKD with Bob ###
-        logging.info("--- QKD with Bob ---")
+        logging.info("=============== [Alice] QKD with Bob ===============")
         await self.run_QKD("Bob", Bob_host, Bob_port)
         if self.Bob_key is None:
-            logging.info("Protocol Aborted.")
+            logging.info("[QKD] Protocol Aborted.")
             return
-        print("test")
-        print(self.Charlie_key)
-        print(self.Bob_key)
+        logging.info(f"[Alice] Alice-Bob key: {self.Bob_key[:10]}, length: {len(self.Bob_key)}")
 
         ### Sign message and send to Bob ###
-        logging.info("--- Signing message and sending to Bob ---")
+        logging.info("=============== [Alice] Message signature ===============")
         await self.sign(Bob_host, Bob_port)
     
-    
-
-    ### 
-
-
-
-
-
 
 if __name__ == "__main__":
 
@@ -146,12 +132,6 @@ if __name__ == "__main__":
                         help="show log in live")
     
     args = parser.parse_args()
-    '''
-    alice = QDSHandlerAlice(args)
-    alice.Bob_key = [0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]
-    alice.Charlie_key = [0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1]
-    print(alice.sign())
-    '''
     
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -160,8 +140,8 @@ if __name__ == "__main__":
     logging.basicConfig(
         filename=log_filename,
         format="%(asctime)s - %(levelname)s - %(message)s",
-        #level=logging.INFO, 
-        level=logging.DEBUG, 
+        level=logging.INFO, 
+        #level=logging.DEBUG, 
         force=True
     )
     logging.getLogger('numba').setLevel(logging.WARNING)

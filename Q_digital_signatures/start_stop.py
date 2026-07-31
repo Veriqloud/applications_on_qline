@@ -49,31 +49,31 @@ async def send_stop_command(mode: str, path_config: str, reader, writer) -> None
         writer.write(bytes([0x1, 0x0, 0x0, 0x0, 0x1]))
         await writer.drain()
 
-        logging.info("[C] Stop Command sent")
+        logging.debug("[start_stop][quantum channel] Stop Command sent")
         response = await read_exactly_async(reader, 5)
-        logging.info(f"[C] Stop Command response: {list(response)}")
+        logging.debug(f"[start_stop][quantum channel] Stop Command response: {list(response)}")
 
     except BrokenPipeError as e:
         # If the server closed its side, log the error but treat it as a successful shutdown
-        logging.warning(f"[C] BrokenPipeError while sending stop command. Server connection was already closed: {e}")
+        logging.warning(f"[start_stop][quantum channel] BrokenPipeError while sending stop command. Server connection was already closed: {e}")
 
     except (ConnectionRefusedError, FileNotFoundError, OSError) as e:
         # Handles connection issues other than Broken Pipe (server not started, socket missing, etc.)
-        logging.error(f"[C] Failed to send stop command: {e} with socket {socket_path}")
+        logging.error(f"[start_stop][quantum channel] Failed to send stop command: {e} with socket {socket_path}")
 
     finally:
         # Close the writer regardless of whether communication succeeded
         if writer is not None:
-            logging.debug("[C] Closing writer and waiting for closure.")
+            logging.debug("[start_stop][quantum channel] Closing writer and waiting for closure.")
             writer.close()
             try:
                 # Add a timeout to prevent potential hanging if the socket is truly corrupted
                 await asyncio.wait_for(writer.wait_closed(), timeout=2.0)
             except asyncio.TimeoutError:
-                logging.warning("[C] Timeout while waiting for writer to close. Proceeding.")
+                logging.warning("[start_stop][quantum channel] Timeout while waiting for writer to close. Proceeding.")
             except Exception as e:
                 # Catch any unexpected errors during final closure, including potential lingering BrokenPipe issues
-                logging.warning(f"[C] Error during final writer cleanup: {e}")
+                logging.warning(f"[start_stop][quantum channel] Error during final writer cleanup: {e}")
 
 
 async def send_start_command(mode: str, path_config: str):
@@ -96,14 +96,14 @@ async def send_start_command(mode: str, path_config: str):
         writer.write(bytes([0x1, 0x0, 0x0, 0x0, 0x0]))
         await writer.drain()
 
-        logging.info("[C] Start Command sent")
+        logging.debug("[start_stop][quantum channel] Start Command sent")
         response = await read_exactly_async(reader, 5)
-        logging.debug(f"[C] Got response: {list(response)}")
+        logging.debug(f"[start_stop][quantum channel] Got response: {list(response)}")
         
         return reader, writer
 
     except (ConnectionRefusedError, FileNotFoundError, OSError) as e:
-        logging.error(f"[C] Failed to send start command: {e} with socket {socket_path}")
+        logging.error(f"[start_stop][quantum channel] Failed to send start command: {e} with socket {socket_path}")
         if writer is not None:
             writer.close()
             await writer.wait_closed()

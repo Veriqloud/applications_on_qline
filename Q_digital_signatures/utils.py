@@ -24,12 +24,10 @@ from pylfsr import LFSR
 
 # security (trusted intervalle) for sampling error on the qber
 # EPS_SEC1=2**(-35)
-#EPS_SEC1 = 2**(-23) # original
-EPS_SEC1 = 2**(-5)
+EPS_SEC1 = 2**(-23) # original
 # security (trusted intervalle) for sampling error on the 2 basis-subsets
 # EPS_SEC2=2**(-35)
-EPS_SEC2 = 2**(-5)
-#EPS_SEC2 = 2**(-23) # original
+EPS_SEC2 = 2**(-23) # original
 EPS_COR=2**(-24)
 
 BATCH_SIZE = 2000
@@ -42,6 +40,7 @@ def calculate_batches(num_qubits):
 
     return num_batches, BATCH_SIZE 
 
+
 def calculate_num_qubits(n, bH):
     '''
     #return 3 * n * bH * 2 * 2 
@@ -52,10 +51,11 @@ def calculate_num_qubits(n, bH):
         return tmp + 1
     '''
     batch_size = 3000
-    num_qubits = 600000
-    num_batches = num_qubits//batch_size
+    num_qubits = 1200000
+    num_batches = (num_qubits//batch_size)//2
     #return 6000000, 1000, 3000
     return num_qubits, num_batches,batch_size
+
 
 def irreducible_polynomial(bH):
     GF = galois.GF(2)
@@ -71,7 +71,8 @@ def irreducible_polynomial(bH):
                 if c == 1:
                     exps.append(bH - i)
             return coeffs  
-    
+
+
 def Toeplitz(coeffs, state, bH, bM):
 
     # coeffs = [1, c_{bH-1}, ..., c_1, c_0], degree bH, monic, c_0 must be 1
@@ -92,18 +93,17 @@ def Toeplitz(coeffs, state, bH, bM):
 
     return T
 
+
 def sign(key, bH, message):
     
     key1 = key[:bH]
     key2 = key[bH:]
     coeffs = irreducible_polynomial(bH)
-    # print(coeffs)
     T = Toeplitz(coeffs, key1, bH, len(message))
     hashed = np.concatenate((T @ message % 2, coeffs[1:]))
-    #print(len(key), len(key1), len(key2), bH, len(hashed))
     signed = hashed ^ key2
-    #print(len(signed))
     return signed
+
 
 def verify(key, bH, message, signature):
     key1 = key[:bH]
@@ -119,6 +119,16 @@ def verify(key, bH, message, signature):
         return False
 
 
+def apply_privacy_amplification(current_key, measured_qber, length, k, leak, s=None):
+    l = randomness_extraction_length_qkd(length, k, leak, q=measured_qber, eps_sec=EPS_SEC1, eps_cor=EPS_COR)
+    l = min(l, 256)
+    n = len(current_key)
+    if s is None:
+        s = toep_coeff(n, l)
+    #print(current_key, n, l, s)
+    key, pad = two_universal_hash_pa(current_key, n, l, s)
+    #print(key, )
+    return np.unpackbits(key)[:l], s # shld change this to a version where pack bits is simply not done..
     
 
 
@@ -231,16 +241,16 @@ def print_csr_size(A):
         A.indices.nbytes +
         A.indptr.nbytes
     )
-    logging.info(f"[csr] Size of H.data: {A.data.nbytes}, H.indices: {A.indices.nbytes} H.indptr: {A.indptr.nbytes}")
-    logging.info(f"[csr] size_bytes:{size_bytes} bytes")
-    logging.info(f"[csr] total {size_bytes / (1024**2)} MB")
+    logging.info(f"[utils][csr] Size of H.data: {A.data.nbytes}, H.indices: {A.indices.nbytes} H.indptr: {A.indptr.nbytes}")
+    logging.info(f"[utils][csr] size_bytes:{size_bytes} bytes")
+    logging.info(f"[utils][csr] total {size_bytes / (1024**2)} MB")
 
 
 def read_matrix(N, Qth):
-    logging.info(f"[Matrix] Estimated QBER {Qth}")
+    logging.debug(f"[utils][Matrix] Estimated QBER {Qth}")
     # initialize LDPC parity check
     if Qth > 0 and Qth < 0.045: 
-        logging.info(f"[Matrix] Using LDPC code for QBER < 0.045 ")
+        logging.debug(f"[utils][Matrix] Using LDPC code for QBER < 0.045 ")
         if N < 1572864 :    
             path = "codes_ldpc/rate_0.33/block_6144_proto_2x6_313422410401.qccsc.mtx"
             pathpairs_csv = "codes_ldpc/rate_adaptation/rate_adaption_2x6_block_6144.csv"
@@ -562,8 +572,8 @@ def randomness_extraction_length_qkd(n, k, leak, q, eps_sec, eps_cor):
     small = np.log(2/(eps_sec*eps_sec*eps_cor))/np.log(2) # ~100
     final_length_fs = int(n - leak - (h(q2) * n) - small)
 
-    logging.debug(f"[extraction] For n = {n}, k = {k}, q = {q}, leak = {leak},")
-    logging.debug(f"[extraction] finite size bound: l = {final_length_fs} bits.") #256
+    logging.debug(f"[utils][extraction] For n = {n}, k = {k}, q = {q}, leak = {leak},")
+    logging.debug(f"[utils][extraction] finite size bound: l = {final_length_fs} bits.") #256
 
     return max(int(final_length_fs), 0)
 
@@ -667,7 +677,7 @@ def two_universal_hash_pa(xkey, n, l, toep):
 
     #toep = secrets.token_bytes(nbytes+mytes)
 
-    logging.debug(f"[hash_PA] n={n},l={l}, n+l={n+l}, toep len:{len(toep)},xkey len:{len(xkey)}")
+    logging.debug(f"[utils][hash_PA] n={n},l={l}, n+l={n+l}, toep len:{len(toep)},xkey len:{len(xkey)}")
     res = np.array([], dtype=np.uint8)
 
     # remove for loop ?
@@ -682,18 +692,6 @@ def two_universal_hash_pa(xkey, n, l, toep):
     pad = 8*len(resbyte) - len(res)
     return resbyte, pad 
 
-def apply_privacy_amplification(current_key, measured_qber, length, k, leak, s=None):
-    l = randomness_extraction_length_qkd(length, k, leak, q=measured_qber, eps_sec=EPS_SEC1, eps_cor=EPS_COR)
-    #l = randomness_extraction_length_ot(qber_measurement_length * 50, leak, q=measured_qber /40, eps_sec1=EPS_SEC1, eps_cor=EPS_COR, eps_sec2=EPS_SEC2)
-    #l = randomness_extraction_length_ot(qber_measurement_length * 2, leak, q=measured_qber, eps_sec1=EPS_SEC1, eps_cor=EPS_COR, eps_sec2=EPS_SEC2)
-    l = min(l, 256)
-    n = len(current_key)
-    if s is None:
-        s = toep_coeff(n, l)
-    #print(current_key, n, l, s)
-    key, pad = two_universal_hash_pa(current_key, n, l, s)
-    print(key, )
-    return np.unpackbits(key)[:l], s # shld change this to a version where pack bits is simply not done..
 
 # add leak param when available
 def prg_encrypt2(xbit: bytes, m: Union[bytes, bytearray],Qtol: float, lambda_ot, leak) -> bytes:
