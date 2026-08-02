@@ -38,6 +38,7 @@ class QDSHandlerAlice():
             self.Bob_host = network['ip']['bob']
             self.Bob_port = int(network['port']['qds_bob'])
         
+        
     async def run_QKD(self, name, host, port):
         socket_reader, socket_writer = await send_start_command("hwsim", path_config)
         logging.info(f"[Alice][quantum channel] Sent start command for quantum channel.")
@@ -59,6 +60,7 @@ class QDSHandlerAlice():
         writer.close()
         await writer.wait_closed()
         
+
     async def sign(self, host, port):
         # sign doc and send to Bob
         reader, writer = await asyncio.open_connection(host, port)
@@ -86,10 +88,6 @@ class QDSHandlerAlice():
         await writer.wait_closed()
 
         logging.info(f"*************** [Alice] Response from Bob: {response} ***************")
-        
-
-        #writer.close()
-       # await writer.wait_closed()
 
 
     async def run(self):
@@ -121,9 +119,7 @@ class QDSHandlerAlice():
     
 
 if __name__ == "__main__":
-
     
-
     parser = argparse.ArgumentParser(description="Alice Protocol Runner")
     parser.add_argument("-m", "--mode", type=str, default="hwsim",
                         help="Operation mode: 'hwsim', or 'real'")

@@ -7,6 +7,7 @@ import random
 import numpy as np
 from utils import verify
 import json
+import argparse
 
 
 all_connections_done = asyncio.Event()
@@ -17,7 +18,7 @@ mode = "hwsim"
 
 
 class QDSHandlerBob():
-    def __init__(self, mode):
+    def __init__(self, args):
         self.n = None
         self.bH = None
         self.key = None
@@ -26,9 +27,11 @@ class QDSHandlerBob():
         self.Charlie_half = []
         self.Charlie_indices = []
         self.Alice_signatures = []
-        self.mode = mode
+        self.mode = args.mode
+        self.network_config = args.network_config
+        self.path_config = args.path_config
 
-        with open(network_config, 'r') as f:
+        with open(self.network_config, 'r') as f:
             network = json.load(f)
         if self.mode == "hwsim":
             self.Charlie_host = network['ip']['bob_hwsim']
@@ -40,10 +43,30 @@ class QDSHandlerBob():
             self.Charlie_port = int(network['port']['qds_charlie'])
             self.Bob_host = network['ip']['bob']
             self.Bob_port = int(network['port']['qds_bob'])
+ 
+    
+    async def run(self):
+        logging.info(f"Charlie's ip adress: {self.Charlie_host}")
+        logging.info(f"Charlie's port: {self.Charlie_port}")
+        logging.info(f"Bob's ip adress: {self.Bob_host}")
+        logging.info(f"Bob's port: {self.Bob_port}")
+
+        
+        server = await asyncio.start_server(
+            self.dispatcher,
+            self.Bob_host, self.Bob_port
+        )
+        logging.info("=============== [Bob] Server started. Waiting for Connections. ===============")
+
+        async with server: 
+            await all_connections_done.wait()
+            server.close()
+            await server.wait_closed()
+            logging.info("[Bob] Server Closed.")
         
 
     async def handle_QKD(self, reader, writer, request):
-        QKD_Bob = QKDHandlerBob(reader, writer, path_config, mode=self.mode, num_qubits=request["num_qubits"],  num_batches=request["num_batches"], batch_size=request["batch_size"])
+        QKD_Bob = QKDHandlerBob(reader, writer, path_config = self.path_config, mode=self.mode, num_qubits=request["num_qubits"],  num_batches=request["num_batches"], batch_size=request["batch_size"])
         logging.info("[Bob][QKD] Created Bob's QKD handler object.")
         self.n = request["n"]
         self.bH = request["bH"]
@@ -55,8 +78,6 @@ class QDSHandlerBob():
         await writer.wait_closed()
 
         #so Alice and Charlie QKD shld happen first, then Alice and Bob QKD will trigger the key exchange
-        
-
         
     
     async def handle_key_transfer(self, request):
@@ -108,6 +129,7 @@ class QDSHandlerBob():
         logging.info("[Bob] Verification completed without errors detected.")
         return True
 
+
     async def handle_forwarding(self, request):
         
         reader, writer = await asyncio.open_connection(self.Charlie_host, self.Charlie_port)
@@ -121,7 +143,6 @@ class QDSHandlerBob():
         writer.close()
         await writer.wait_closed()
         return response
-
 
 
     async def dispatcher(self, reader, writer):
@@ -156,40 +177,23 @@ class QDSHandlerBob():
 
             logging.info("[Bob] All connections completed, closing server.")
             all_connections_done.set()
-            
-
-
-            
-
-
-
-async def main(mode):
-
-    # TODO: edit
     
-    bob = QDSHandlerBob(mode)
-
-    logging.info(f"Charlie's ip adress: {bob.Charlie_host}")
-    logging.info(f"Charlie's port: {bob.Charlie_port}")
-    logging.info(f"Bob's ip adress: {bob.Bob_host}")
-    logging.info(f"Bob's port: {bob.Bob_port}")
-
-    
-
-    
-    server = await asyncio.start_server(
-        bob.dispatcher,
-        bob.Bob_host, bob.Bob_port
-    )
-    logging.info("=============== [Bob] Server started. Waiting for Connections. ===============")
-
-    async with server: 
-        await all_connections_done.wait()
-        server.close()
-        await server.wait_closed()
-        logging.info("[Bob] Server Closed.")
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="Bob Protocol Runner")
+    parser.add_argument("-m", "--mode", type=str, default="hwsim",
+                        help="Operation mode: 'hwsim', or 'real'")
+    parser.add_argument("-p", "--path_config", type=str, default="config_test/sim/bob/qds.json",
+                        help="Path to FIFO config file (default: config_test/sim/bob/qds.json)")
+    parser.add_argument("-c", "--network_config", type=str, default="config/network.json",
+                        help="Path to network config file")
+    #parser.add_argument("-q", "--qber", type=float, default=0.055,
+    #                    help="Quantum bit error rate (default: 0.055)")
+    parser.add_argument("-l", "--loglive", action="store_true",
+                        help="show log in live")
+    
+    args = parser.parse_args()
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     log_filename = f"sim_bob_{timestamp}.log"
@@ -201,4 +205,5 @@ if __name__ == "__main__":
         #level=logging.DEBUG, 
         force=True
     )
-    asyncio.run(main(mode))
+    bob = QDSHandlerBob(args)
+    asyncio.run(bob.run())

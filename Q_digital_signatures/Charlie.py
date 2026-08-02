@@ -7,6 +7,7 @@ import logging
 import numpy as np
 from utils import verify
 import json
+import argparse
 
 all_connections_done = asyncio.Event()
 
@@ -15,16 +16,18 @@ network_config = "config/network.json"
 mode = "hwsim"
 
 class QDSHandlerCharlie:
-    def __init__(self, mode):
+    def __init__(self, args):
         self.n = None
         self.bH = None
         self.key = None
         self.Bob_half = []
         self.Bob_indices = []
         self.eMax = 0.0
-        self.mode = mode
+        self.mode = args.mode
+        self.path_config = args.path_config
+        self.network_config = args.network_config
 
-        with open(network_config, 'r') as f:
+        with open(self.network_config, 'r') as f:
             network = json.load(f)
         if self.mode == "hwsim":
             self.Charlie_host = network['ip']['bob_hwsim']
@@ -37,7 +40,24 @@ class QDSHandlerCharlie:
             self.Bob_host = network['ip']['bob']
             self.Bob_port = int(network['port']['qds_bob'])
 
-    
+
+    async def run(self):
+        logging.info(f"Charlie's ip adress: {self.Charlie_host}")
+        logging.info(f"Charlie's port: {self.Charlie_port}")
+        logging.info(f"Bob's ip adress: {self.Bob_host}")
+        logging.info(f"Bob's port: {self.Bob_port}")
+
+        server = await asyncio.start_server(
+            charlie.dispatcher,
+            charlie.Charlie_host, charlie.Charlie_port
+        )
+
+        async with server: 
+            await all_connections_done.wait()
+            server.close()
+            await server.wait_closed()
+
+
     def handle_verification(self, request):
         self.Alice_message = request["message"]
         self.Alice_signatures = request["signatures"]
@@ -61,7 +81,7 @@ class QDSHandlerCharlie:
 
         if request["type"] == "QKD":
             logging.info("=============== [Charlie] QKD with Alice ===============")
-            QKD_Charlie = QKDHandlerBob(reader, writer, path_config=path_config, mode=self.mode, num_qubits=request["num_qubits"], num_batches=request["num_batches"], batch_size=request["batch_size"])
+            QKD_Charlie = QKDHandlerBob(reader, writer, path_config=self.path_config, mode=self.mode, num_qubits=request["num_qubits"], num_batches=request["num_batches"], batch_size=request["batch_size"])
             logging.info("[Charlie][QKD] Created Charlie's QKD handler object.")
             self.n = request["n"]
             self.bH = request["bH"]
@@ -98,7 +118,6 @@ class QDSHandlerCharlie:
             writer.close()
             await writer.wait_closed()
             
-
         elif request["type"] == "SIGNATURES":
             logging.info("--- Signatures received from Bob. Beginning verification. ---")
             errors = self.handle_verification(request)
@@ -118,24 +137,23 @@ class QDSHandlerCharlie:
             all_connections_done.set()
 
 
-
- 
-
-async def main(mode):
-
-    charlie = QDSHandlerCharlie(mode)
-
-    server = await asyncio.start_server(
-        charlie.dispatcher,
-        charlie.Charlie_host, charlie.Charlie_port
-    )
-
-    async with server: 
-        await all_connections_done.wait()
-        server.close()
-        await server.wait_closed()
-
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser(description="Charlie Protocol Runner")
+    parser.add_argument("-m", "--mode", type=str, default="hwsim",
+                        help="Operation mode: 'hwsim', or 'real'")
+    parser.add_argument("-p", "--path_config", type=str, default="config_test/sim/bob/qds.json",
+                        help="Path to FIFO config file (default: config_test/sim/bob/qds.json)")
+    parser.add_argument("-c", "--network_config", type=str, default="config/network.json",
+                        help="Path to network config file")
+    #parser.add_argument("-q", "--qber", type=float, default=0.055,
+    #                    help="Quantum bit error rate (default: 0.055)")
+    parser.add_argument("-l", "--loglive", action="store_true",
+                        help="show log in live")
+    
+    args = parser.parse_args()
+
+
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     log_filename = f"sim_charlie_{timestamp}.log"
     # Configure logging
@@ -146,4 +164,5 @@ if __name__ == "__main__":
         level=logging.DEBUG, 
         force=True
     )
-    asyncio.run(main(mode))
+    charlie = QDSHandlerCharlie(args)
+    asyncio.run(charlie.run())
