@@ -6,27 +6,44 @@ from datetime import datetime
 import random
 import numpy as np
 from utils import verify
+import json
 
 
 all_connections_done = asyncio.Event()
 
-path_config = "config_test/sim/bob/ot.json"
+path_config = "config_test/sim/bob/qds.json"
+network_config = "config/network.json"
+mode = "hwsim"
 
 
 class QDSHandlerBob():
-    def __init__(self, Charlie_host, Charlie_port):
+    def __init__(self, mode):
         self.n = None
         self.bH = None
         self.key = None
-        self.Charlie_host = Charlie_host
-        self.Charlie_port = Charlie_port
+        #self.Charlie_host = Charlie_host
+        #self.Charlie_port = Charlie_port
         self.Charlie_half = []
         self.Charlie_indices = []
         self.Alice_signatures = []
+        self.mode = mode
+
+        with open(network_config, 'r') as f:
+            network = json.load(f)
+        if self.mode == "hwsim":
+            self.Charlie_host = network['ip']['bob_hwsim']
+            self.Charlie_port = int(network['port']['hwsim_charlie'])
+            self.Bob_host = network['ip']['bob_hwsim']
+            self.Bob_port = int(network['port']['hwsim_bob'])
+        elif self.mode == "real":
+            self.Charlie_host = network['ip']['bob']
+            self.Charlie_port = int(network['port']['qds_charlie'])
+            self.Bob_host = network['ip']['bob']
+            self.Bob_port = int(network['port']['qds_bob'])
         
 
     async def handle_QKD(self, reader, writer, request):
-        QKD_Bob = QKDHandlerBob(reader, writer, path_config, mode=request["mode"], num_qubits=request["num_qubits"],  num_batches=request["num_batches"], batch_size=request["batch_size"])
+        QKD_Bob = QKDHandlerBob(reader, writer, path_config, mode=self.mode, num_qubits=request["num_qubits"],  num_batches=request["num_batches"], batch_size=request["batch_size"])
         logging.info("[Bob][QKD] Created Bob's QKD handler object.")
         self.n = request["n"]
         self.bH = request["bH"]
@@ -146,25 +163,23 @@ class QDSHandlerBob():
 
 
 
-async def main():
+async def main(mode):
 
     # TODO: edit
-    Charlie_host = "localhost"
-    Charlie_port = "7100"
-    host = "localhost"
-    port = "1700"
+    
+    bob = QDSHandlerBob(mode)
 
-    logging.info(f"Charlie's ip adress: {Charlie_host}")
-    logging.info(f"Charlie's port: {Charlie_port}")
-    logging.info(f"Bob's ip adress: {host}")
-    logging.info(f"Bob's port: {port}")
+    logging.info(f"Charlie's ip adress: {bob.Charlie_host}")
+    logging.info(f"Charlie's port: {bob.Charlie_port}")
+    logging.info(f"Bob's ip adress: {bob.Bob_host}")
+    logging.info(f"Bob's port: {bob.Bob_port}")
 
-    bob = QDSHandlerBob(Charlie_host, Charlie_port)
+    
 
     
     server = await asyncio.start_server(
         bob.dispatcher,
-        host, port
+        bob.Bob_host, bob.Bob_port
     )
     logging.info("=============== [Bob] Server started. Waiting for Connections. ===============")
 
@@ -186,4 +201,4 @@ if __name__ == "__main__":
         #level=logging.DEBUG, 
         force=True
     )
-    asyncio.run(main())
+    asyncio.run(main(mode))

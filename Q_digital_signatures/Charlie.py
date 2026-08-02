@@ -6,19 +6,36 @@ from datetime import datetime
 import logging
 import numpy as np
 from utils import verify
+import json
 
 all_connections_done = asyncio.Event()
 
-path_config = "config_test/sim/bob/ot.json"
+path_config = "config_test/sim/bob/qds.json"
+network_config = "config/network.json"
+mode = "hwsim"
 
 class QDSHandlerCharlie:
-    def __init__(self):
+    def __init__(self, mode):
         self.n = None
         self.bH = None
         self.key = None
         self.Bob_half = []
         self.Bob_indices = []
         self.eMax = 0.0
+        self.mode = mode
+
+        with open(network_config, 'r') as f:
+            network = json.load(f)
+        if self.mode == "hwsim":
+            self.Charlie_host = network['ip']['bob_hwsim']
+            self.Charlie_port = int(network['port']['hwsim_charlie'])
+            self.Bob_host = network['ip']['bob_hwsim']
+            self.Bob_port = int(network['port']['hwsim_bob'])
+        elif self.mode == "real":
+            self.Charlie_host = network['ip']['bob']
+            self.Charlie_port = int(network['port']['qds_charlie'])
+            self.Bob_host = network['ip']['bob']
+            self.Bob_port = int(network['port']['qds_bob'])
 
     
     def handle_verification(self, request):
@@ -44,7 +61,7 @@ class QDSHandlerCharlie:
 
         if request["type"] == "QKD":
             logging.info("=============== [Charlie] QKD with Alice ===============")
-            QKD_Charlie = QKDHandlerBob(reader, writer, path_config=path_config, mode="hwsim", num_qubits=request["num_qubits"], num_batches=request["num_batches"], batch_size=request["batch_size"])
+            QKD_Charlie = QKDHandlerBob(reader, writer, path_config=path_config, mode=self.mode, num_qubits=request["num_qubits"], num_batches=request["num_batches"], batch_size=request["batch_size"])
             logging.info("[Charlie][QKD] Created Charlie's QKD handler object.")
             self.n = request["n"]
             self.bH = request["bH"]
@@ -104,16 +121,13 @@ class QDSHandlerCharlie:
 
  
 
-async def main():
+async def main(mode):
 
-    # TODO: edit
-    host = "localhost"
-    port = "7100"
-    charlie = QDSHandlerCharlie()
+    charlie = QDSHandlerCharlie(mode)
 
     server = await asyncio.start_server(
         charlie.dispatcher,
-        host, port
+        charlie.Charlie_host, charlie.Charlie_port
     )
 
     async with server: 
@@ -128,8 +142,8 @@ if __name__ == "__main__":
     logging.basicConfig(
         filename=log_filename,
         format="%(asctime)s - %(levelname)s - %(message)s",
-        level=logging.INFO, 
-        #level=logging.DEBUG, 
+        #level=logging.INFO, 
+        level=logging.DEBUG, 
         force=True
     )
-    asyncio.run(main())
+    asyncio.run(main(mode))

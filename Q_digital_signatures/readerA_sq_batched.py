@@ -66,8 +66,8 @@ if __name__ == "__main__":
     #parser.add_argument("-c", "--config", default="kiwi_hw_control/config/sim/alice/ot.json",
     #                    help="Path to config file (default: kiwi_hw_control/config/sim/alice/ot.json)")
     
-    parser.add_argument("-c", "--config", default="config_test/sim/alice/ot.json",
-                        help="Path to config file (default: config_test/sim/alice/ot.json)")
+    parser.add_argument("-c", "--config", default="config_test/sim/alice/qds.json",
+                        help="Path to config file (default: config_test/sim/alice/qds.json)")
     args = parser.parse_args()
     
     logging.basicConfig(level=logging.INFO)

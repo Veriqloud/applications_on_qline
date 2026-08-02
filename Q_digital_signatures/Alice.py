@@ -7,8 +7,9 @@ import argparse
 from utils import Toeplitz, irreducible_polynomial, sign, verify, calculate_num_qubits
 import numpy as np
 from datetime import datetime
+import json
 
-path_config = "config_test/sim/alice/ot.json"
+path_config = "config_test/sim/alice/qds.json"
 
 
 class QDSHandlerAlice():
@@ -22,6 +23,20 @@ class QDSHandlerAlice():
         self.mode = args.mode
         self.Charlie_key = None
         self.Bob_key = None
+
+        with open(args.config_network, 'r') as f:
+            network = json.load(f)
+
+        if self.mode == "hwsim":
+            self.Charlie_host = network['ip']['bob_hwsim']
+            self.Charlie_port = int(network['port']['hwsim_charlie'])
+            self.Bob_host = network['ip']['bob_hwsim']
+            self.Bob_port = int(network['port']['hwsim_bob'])
+        elif self.mode == "real":
+            self.Charlie_host = network['ip']['bob']
+            self.Charlie_port = int(network['port']['qds_charlie'])
+            self.Bob_host = network['ip']['bob']
+            self.Bob_port = int(network['port']['qds_bob'])
         
     async def run_QKD(self, name, host, port):
         socket_reader, socket_writer = await send_start_command("hwsim", path_config)
@@ -30,7 +45,7 @@ class QDSHandlerAlice():
         reader, writer = await asyncio.open_connection(host, port)
         logging.info(f"[Alice][TCP] Connected to {host}:{port}")
 
-        await assend(writer, {"type": "QKD", "num_qubits": self.num_qubits, "num_batches": self.num_batches, "batch_size": self.batch_size, "n": self.n, "bH": self.bH, "mode": self.mode})
+        await assend(writer, {"type": "QKD", "num_qubits": self.num_qubits, "num_batches": self.num_batches, "batch_size": self.batch_size, "n": self.n, "bH": self.bH})
         logging.info(f"[Alice][TCP] Sent QKD request to {name}'s handler. {self.num_qubits} qubits to be used.")
 
         QKD_Alice = QKDHandlerAlice(reader, writer, path_config=path_config, mode=self.mode, num_qubits=self.num_qubits, num_batches=self.num_batches, batch_size=self.batch_size, socket_reader=socket_reader, socket_writer=socket_writer)
@@ -78,21 +93,15 @@ class QDSHandlerAlice():
 
 
     async def run(self):
-        # TODO: edit
-        Charlie_host = "localhost"
-        Charlie_port = "7100"
-        Bob_host = "localhost"
-        Bob_port = "1700"
 
-
-        logging.info(f"Charlie's ip adress: {Charlie_host}")
-        logging.info(f"Charlie's port: {Charlie_port}")
-        logging.info(f"Bob's ip adress: {Bob_host}")
-        logging.info(f"Bob's port: {Bob_port}")
+        logging.info(f"Charlie's ip adress: {self.Charlie_host}")
+        logging.info(f"Charlie's port: {self.Charlie_port}")
+        logging.info(f"Bob's ip adress: {self.Bob_host}")
+        logging.info(f"Bob's port: {self.Bob_port}")
 
         ### QKD with Charlie ###
         logging.info("=============== [Alice] QKD with Charlie ===============")
-        await self.run_QKD("Charlie", Charlie_host, Charlie_port)
+        await self.run_QKD("Charlie", self.Charlie_host, self.Charlie_port)
         if self.Charlie_key is None:
             logging.info("[QKD] Protocol Aborted.")
             return
@@ -100,7 +109,7 @@ class QDSHandlerAlice():
         
         ### QKD with Bob ###
         logging.info("=============== [Alice] QKD with Bob ===============")
-        await self.run_QKD("Bob", Bob_host, Bob_port)
+        await self.run_QKD("Bob", self.Bob_host, self.Bob_port)
         if self.Bob_key is None:
             logging.info("[QKD] Protocol Aborted.")
             return
@@ -108,18 +117,18 @@ class QDSHandlerAlice():
 
         ### Sign message and send to Bob ###
         logging.info("=============== [Alice] Message signature ===============")
-        await self.sign(Bob_host, Bob_port)
+        await self.sign(self.Bob_host, self.Bob_port)
     
 
 if __name__ == "__main__":
 
     
 
-    parser = argparse.ArgumentParser(description="Client Protocol Runner")
+    parser = argparse.ArgumentParser(description="Alice Protocol Runner")
     parser.add_argument("-m", "--mode", type=str, default="hwsim",
                         help="Operation mode: 'hwsim', or 'real'")
-    parser.add_argument("-p", "--path_config", type=str, default="config_test/sim/alice/ot.json",
-                        help="Path to FIFO config file (default: config_test/sim/alice/ot.json)")
+    parser.add_argument("-p", "--path_config", type=str, default="config_test/sim/alice/qds.json",
+                        help="Path to FIFO config file (default: config_test/sim/alice/qds.json)")
     parser.add_argument("-n", "--num_blocks", type=int, default=38,
                         help="Number of blocks (default: 10)")
     parser.add_argument("-bH", "--bH", type=int, default=35,
@@ -140,8 +149,8 @@ if __name__ == "__main__":
     logging.basicConfig(
         filename=log_filename,
         format="%(asctime)s - %(levelname)s - %(message)s",
-        level=logging.INFO, 
-        #level=logging.DEBUG, 
+        #level=logging.INFO, 
+        level=logging.DEBUG, 
         force=True
     )
     logging.getLogger('numba').setLevel(logging.WARNING)

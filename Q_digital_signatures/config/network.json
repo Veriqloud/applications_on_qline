@@ -8,8 +8,9 @@
         "alice2": "192.168.1.124"
     },
     "port": {
-        "hwsim": 7100,
-        "ot": 14000
-
+        "hwsim_bob": 1700,
+        "hwsim_charlie": 7100,
+        "qds_bob": 14000,
+        "qds_charlie": 41000
     }
 }
