@@ -1,6 +1,6 @@
-# Oblivious_Transfer_Qline
+# Digital Signatures QLine
 
-This is an implementation of oblivious transfer protocol based on Qline.
+This is an implementation of the digital signatures protocol using Qline.
 
 Qline: 
 In each attenption of forming key pairs on one qubit, we apply operations: 
@@ -36,10 +36,16 @@ graph LR
 
 For example, arrange the config files in *kiwi_hw_control/config/sim*, then run the executables generated above in 4 terminals:
 ```
-sim -c bob/sim.json
-sim -c alice/sim.json
-gc_bob -c bob/gc.json
-gc_alice -c alice/gc.json
+hw_sim/target/release/simulator -c applications_on_qline/Q_digital_signatures/config_test/sim/bob/sim.json
+hw_sim/target/release/simulator -c applications_on_qline/Q_digital_signatures/config_test/sim/alice/sim.json 
+
+kiwi_hw_control/gc/target/release/gc_bob -c applications_on_qline/Q_digital_signatures/config_test/sim/bob/gc.json
+kiwi_hw_control/gc/target/release/gc_alice -c applications_on_qline/Q_digital_signatures/config_test/sim/alice/gc.json
+
+python3 Charlie.py
+python3 Bob.py
+python3 Alice.py
+
 ```
 
 - Run the protocol program on another 2 terminals:
