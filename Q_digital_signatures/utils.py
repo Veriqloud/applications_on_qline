@@ -120,9 +120,11 @@ def verify(key, bH, message, signature):
 
 
 def apply_privacy_amplification(current_key, measured_qber, length, k, leak, s=None):
-    l = randomness_extraction_length_qkd(length, k, leak, q=measured_qber, eps_sec=EPS_SEC1, eps_cor=EPS_COR)
-    l = min(l, 256)
     n = len(current_key)
+    #l = randomness_extraction_length_qkd(length, k, leak, q=measured_qber, eps_sec=EPS_SEC1, eps_cor=EPS_COR)
+    l = randomness_extraction_length_qkd(n, k, leak, q=measured_qber, eps_sec=EPS_SEC1, eps_cor=EPS_COR)
+    l = min(l, 256)
+    
     if s is None:
         s = toep_coeff(n, l)
     #print(current_key, n, l, s)
