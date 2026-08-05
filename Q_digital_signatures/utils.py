@@ -65,14 +65,45 @@ def irreducible_polynomial(bH):
         p = galois.Poly(coeffs, field=GF)
 
         if p.is_irreducible():
-            
+            ''' Old code, depends on which represenatation is needed
             exps = [bH]
             for i, c in enumerate(coeffs[1:-1], start=1):   # x^(bH-1) down to x^1
                 if c == 1:
                     exps.append(bH - i)
+            '''
             return coeffs  
 
+def coeffs_to_exps(coeffs, bH):
+    exps = [bH]
+    for i, c in enumerate(coeffs[1:-1], start=1):
+        if c == 1:
+            exps.append(bH - i)
+    return exps
 
+_POPCOUNT_LUT = np.array([bin(i).count("1") & 1 for i in range(256)], dtype=np.uint8)
+
+def gf2_matvec_popcount(T, vec):
+    T = np.ascontiguousarray(T, dtype=np.uint8)
+    vec = np.ascontiguousarray(vec, dtype=np.uint8)
+
+    Tp = np.packbits(T, axis=1)
+    vp = np.packbits(vec)
+
+    anded = Tp & vp
+    parity_per_byte = _POPCOUNT_LUT[anded]
+    return np.bitwise_xor.reduce(parity_per_byte, axis=1)
+
+
+def toeplitz_prealloc(coeffs, state, bH, bM):
+    exps = coeffs_to_exps(coeffs, bH)
+    lfsr = LFSR(exps, state)
+    T = np.empty((bH, bM), dtype=np.uint8)
+    for j in range(bM):
+        T[:, j] = lfsr.state
+        lfsr.next()
+    return T
+
+''' Old version
 def Toeplitz(coeffs, state, bH, bM):
 
     # coeffs = [1, c_{bH-1}, ..., c_1, c_0], degree bH, monic, c_0 must be 1
@@ -92,15 +123,17 @@ def Toeplitz(coeffs, state, bH, bM):
     T = np.column_stack(columns)
 
     return T
-
+'''
 
 def sign(key, bH, message):
     
     key1 = key[:bH]
     key2 = key[bH:]
     coeffs = irreducible_polynomial(bH)
-    T = Toeplitz(coeffs, key1, bH, len(message))
-    hashed = np.concatenate((T @ message % 2, coeffs[1:]))
+    #T = Toeplitz(coeffs, key1, bH, len(message))
+    #hashed = np.concatenate((T @ message % 2, coeffs[1:]))
+    T = toeplitz_prealloc(coeffs, key1, bH, len(message))
+    hashed = np.concatenate((gf2_matvec_popcount(T, message), coeffs[1:]))
     signed = hashed ^ key2
     return signed
 
@@ -111,8 +144,10 @@ def verify(key, bH, message, signature):
     hashed = signature ^ key2
     coeffs = np.append([1], hashed[bH:])
     hashed = hashed[:bH]
-    T = Toeplitz(coeffs, key1, bH, len(message))
-    test = T @ message % 2
+    #T = Toeplitz(coeffs, key1, bH, len(message))
+    #test = T @ message % 2
+    T = toeplitz_prealloc(coeffs, key1, bH, len(message))
+    test = gf2_matvec_popcount(T, message)
     if all(test[i] == hashed[i] for i in range(bH)):
         return True
     else:
