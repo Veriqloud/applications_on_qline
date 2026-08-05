@@ -330,7 +330,7 @@ def read_matrix(N, Qth):
         exit(1)
 
     H = mmread(path).tocsr()
-    print(f"shape before rate adaptation: {H.shape}")
+    logging.debug(f"shape before rate adaptation: {H.shape}")
 
     ## optimize with rate adaptation. adjust nrows_to_delete to the desired efficiency. Here we 
     ## allow up to 80% of probability of failure after decoding to get a Nqubit required bellow 20_000_000 (memory limit)
