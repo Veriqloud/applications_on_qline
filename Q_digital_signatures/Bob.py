@@ -81,8 +81,8 @@ class QDSHandlerBob():
         
     
     async def handle_key_transfer(self, request):
-        self.n = 5
-        self.bH = 17
+        #self.n = 5
+        #self.bH = 17
         reader, writer = await asyncio.open_connection(self.Charlie_host, self.Charlie_port)
         logging.info(f"[Bob][TCP] Connected to {self.Charlie_host}:{self.Charlie_port}")
 

@@ -102,8 +102,8 @@ class QDSHandlerCharlie:
             
             #self.n = request["n"]
             #self.bH = request["bH"]
-            self.n = 5
-            self.bH = 17
+            #self.n = 5
+            #self.bH = 17
 
             logging.info("---------- [Charlie] Randomly selecting half of blocks to send to Bob. ----------")
             indices = list(range(self.n))

@@ -21,6 +21,7 @@ from threading import Lock
 import csv
 import galois
 from pylfsr import LFSR
+import math
 
 # security (trusted intervalle) for sampling error on the qber
 # EPS_SEC1=2**(-35)
@@ -30,7 +31,8 @@ EPS_SEC1 = 2**(-23) # original
 EPS_SEC2 = 2**(-23) # original
 EPS_COR=2**(-24)
 
-BATCH_SIZE = 2000
+BATCH_SIZE = 3000
+CONFIDENCE = 0.997
 
 
 def calculate_batches(num_qubits):
@@ -41,7 +43,7 @@ def calculate_batches(num_qubits):
     return num_batches, BATCH_SIZE 
 
 
-def calculate_num_qubits(n, bH):
+def calculate_num_qubits(n, bH, estimated_qber, confidence=CONFIDENCE):
     '''
     #return 3 * n * bH * 2 * 2 
     tmp = int(3 * (n+1) * bH * 2 * 2 * 1.05)
@@ -50,11 +52,90 @@ def calculate_num_qubits(n, bH):
     else:
         return tmp + 1
     '''
-    batch_size = 3000
-    num_qubits = 1200000
+    key_length = 3 * n * bH
+    length_after_BR = invert_length(key_length, estimated_qber)
+    num_qubits = int(basis_reconciliation_num_qubits(length_after_BR, confidence))
+    batch_size = BATCH_SIZE
+    #num_qubits = 1200000
     num_batches = (num_qubits//batch_size)//2
+    if num_batches * 2 * batch_size < num_qubits:
+        num_batches += 1
+        num_qubits = num_batches * 2 * batch_size
     #return 6000000, 1000, 3000
+    print(num_qubits, num_batches, batch_size)
     return num_qubits, num_batches,batch_size
+
+
+def basis_reconciliation_num_qubits(resulting_num_qubits, confidence):
+    failure_prob = 1 - confidence
+    a = 0.25
+    b = np.log(1-confidence) - resulting_num_qubits
+    c = math.pow(resulting_num_qubits, 2)
+    num_qubits = (- b + np.sqrt(math.pow(b, 2) - 4 * a * c))/ (2 * a)
+    #x2 = (- b - np.sqrt(math.pow(b, 2) - 4 * a * c))/ (2 * a)
+    return num_qubits
+
+
+def estimate_leak(initial_length, measured_qber):
+        # initial_length is the length after basis reconciliation
+        #verification_length = initial_length//2
+        remaining_key_length = initial_length//2
+
+        #print(initial_length)
+        Hldpc, eccblock = read_matrix(remaining_key_length, measured_qber)
+        
+
+        if remaining_key_length < eccblock: # Insecure case    
+            return None, None
+
+        truncated_key_length=(remaining_key_length // eccblock) * eccblock
+
+        leak = (remaining_key_length // eccblock) * Hldpc.shape[0]
+        return leak, truncated_key_length
+
+
+def estimate_final_key_length(initial_length, measured_qber):
+    leak, truncated_key_length = estimate_leak(initial_length, measured_qber)
+    if leak == None:
+         return 0
+    
+    verification_length = initial_length // 2
+    #print(truncated_key_length, verification_length)
+    l = randomness_extraction_length_qkd(truncated_key_length, verification_length, leak, q=measured_qber, eps_sec=EPS_SEC1, eps_cor=EPS_COR)
+    return l
+
+
+def invert_length(target_final_length, qber,
+                   lo=10000, hi=30_000_0, tol=0):
+    """
+    Finds the smallest initial_length such that l1 (or l2) >= target_final_length,
+    for a given measured_qber. Assumes the function is non-decreasing in initial_length.
+    """
+    def f(x):
+        l = estimate_final_key_length(x, qber)
+        return l
+
+    # Make sure the target is even achievable within [lo, hi]
+    #print("test1")
+    f_hi = f(hi)
+    if f_hi < target_final_length:
+        raise ValueError(f"Target {target_final_length} not reachable even at hi={hi} "
+                          f"(got {f_hi}). Increase hi.")
+
+    #print("test2")
+    f_lo = f(lo)
+    if f_lo >= target_final_length:
+        return lo  # already satisfied at the lower bound
+
+    #print("test3")
+    while hi - lo > tol:
+        mid = (lo + hi) // 2
+        if f(mid) >= target_final_length:
+            hi = mid
+        else:
+            lo = mid + 1
+
+    return hi
 
 
 def irreducible_polynomial(bH):

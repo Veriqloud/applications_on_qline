@@ -4,7 +4,7 @@ from async_communication import asrecv, assend
 from qkd import QKDHandlerAlice
 from start_stop import send_start_command
 import argparse
-from utils import Toeplitz, irreducible_polynomial, sign, verify, calculate_num_qubits
+from utils import sign, calculate_num_qubits
 import numpy as np
 from datetime import datetime
 import json
@@ -18,7 +18,7 @@ class QDSHandlerAlice():
         
         self.n = args.num_blocks
         self.bH = args.bH
-        self.num_qubits, self.num_batches, self.batch_size = calculate_num_qubits(self.n, self.bH)
+        self.num_qubits, self.num_batches, self.batch_size = calculate_num_qubits(self.n, self.bH, 0.05)
         self.message = [int(i) for i in "1010110110"]
         self.mode = args.mode
         self.Charlie_key = None
@@ -125,9 +125,9 @@ if __name__ == "__main__":
                         help="Operation mode: 'hwsim', or 'real'")
     parser.add_argument("-p", "--path_config", type=str, default="config_test/sim/alice/qds.json",
                         help="Path to FIFO config file (default: config_test/sim/alice/qds.json)")
-    parser.add_argument("-n", "--num_blocks", type=int, default=38,
+    parser.add_argument("-n", "--num_blocks", type=int, default=5,
                         help="Number of blocks (default: 10)")
-    parser.add_argument("-bH", "--bH", type=int, default=35,
+    parser.add_argument("-bH", "--bH", type=int, default=17,
                         help="bH as defined in the paper (default: 10)")
     parser.add_argument("-c", "--config_network", type=str, default="config/network.json",
                         help="Path to network config file")
