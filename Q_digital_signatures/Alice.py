@@ -19,6 +19,7 @@ class QDSHandlerAlice():
         self.n = args.num_blocks
         self.bH = args.bH
         self.num_qubits, self.num_batches, self.batch_size = calculate_num_qubits(self.n, self.bH, 0.05)
+        print(self.num_qubits, self.num_batches, self.batch_size)
         self.message = [int(i) for i in "1010110110"]
         self.mode = args.mode
         self.Charlie_key = None
@@ -68,12 +69,12 @@ class QDSHandlerAlice():
 
         
         logging.info("--------------- [Alice] Processing Alice's keys ---------------")
-        self.n = 5
-        self.bH = 17
+        #self.n = 5
+        #self.bH = 17
         logging.info(f"[Alice] Combining Alice-Bob and Alice-Charlie keys to form {self.n * 2} blocks of {3 * self.bH} bits.")
         Alice_key = [self.Bob_key[i * (3 * self.bH): (i+1) * (3 * self.bH)] for i in range(self.n)] + [self.Charlie_key[i * (3 * self.bH): (i+1) * (3 * self.bH)] for i in range(self.n)]
         logging.debug(f"Number of blocks formed: {len(Alice_key)}")
-        logging.debug(f"Alice-Bob key length: {len(self.Bob_key)}, Alice-Charlie key length: {len(self.Charlie_key)}, required total length: {2 * 3 * self.n * self.num_batches}")
+        logging.debug(f"Alice-Bob key length: {len(self.Bob_key)}, Alice-Charlie key length: {len(self.Charlie_key)}, required total length: {2 * 3 * self.n * self.bH}")
 
         logging.info("--------------- [Alice] Beginning signatures of message ---------------")
         signatures = [sign(key, self.bH,self.message) for key in Alice_key]
@@ -125,9 +126,9 @@ if __name__ == "__main__":
                         help="Operation mode: 'hwsim', or 'real'")
     parser.add_argument("-p", "--path_config", type=str, default="config_test/sim/alice/qds.json",
                         help="Path to FIFO config file (default: config_test/sim/alice/qds.json)")
-    parser.add_argument("-n", "--num_blocks", type=int, default=5,
+    parser.add_argument("-n", "--num_blocks", type=int, default=50,
                         help="Number of blocks (default: 10)")
-    parser.add_argument("-bH", "--bH", type=int, default=17,
+    parser.add_argument("-bH", "--bH", type=int, default=8,
                         help="bH as defined in the paper (default: 10)")
     parser.add_argument("-c", "--config_network", type=str, default="config/network.json",
                         help="Path to network config file")

@@ -55,18 +55,19 @@ def calculate_num_qubits(n, bH, estimated_qber, confidence=CONFIDENCE):
     key_length = 3 * n * bH
     length_after_BR = invert_length(key_length, estimated_qber)
     num_qubits = int(basis_reconciliation_num_qubits(length_after_BR, confidence))
-    batch_size = BATCH_SIZE
+    batch_size = BATCH_SIZE #
     #num_qubits = 1200000
     num_batches = (num_qubits//batch_size)//2
     if num_batches * 2 * batch_size < num_qubits:
         num_batches += 1
         num_qubits = num_batches * 2 * batch_size
     #return 6000000, 1000, 3000
-    print(num_qubits, num_batches, batch_size)
+    #print(num_qubits, num_batches, batch_size)
     return num_qubits, num_batches,batch_size
 
 
 def basis_reconciliation_num_qubits(resulting_num_qubits, confidence):
+    #chernoff bound
     failure_prob = 1 - confidence
     a = 0.25
     b = np.log(1-confidence) - resulting_num_qubits
@@ -106,7 +107,7 @@ def estimate_final_key_length(initial_length, measured_qber):
 
 
 def invert_length(target_final_length, qber,
-                   lo=10000, hi=30_000_0, tol=0):
+                   lo=10000, hi=3_000_000, tol=0):
     """
     Finds the smallest initial_length such that l1 (or l2) >= target_final_length,
     for a given measured_qber. Assumes the function is non-decreasing in initial_length.
@@ -239,7 +240,7 @@ def apply_privacy_amplification(current_key, measured_qber, length, k, leak, s=N
     n = len(current_key)
     #l = randomness_extraction_length_qkd(length, k, leak, q=measured_qber, eps_sec=EPS_SEC1, eps_cor=EPS_COR)
     l = randomness_extraction_length_qkd(n, k, leak, q=measured_qber, eps_sec=EPS_SEC1, eps_cor=EPS_COR)
-    l = min(l, 256)
+    #l = min(l, 256)
     
     if s is None:
         s = toep_coeff(n, l)
