@@ -1,12 +1,7 @@
 import asyncio
 from utils import *
-from extractable_equivocal_commitment.eec import server_eec_dual_compact, client_eec_dual_compact
-#from readerA_sq import reader_alice # single thread from readerA
-#from readerB_sq import reader_bob # single thread from readerB
-from readerA_sq_batched import reader_alice # single thread from readerA
-from readerB_sq_batched import reader_bob # single thread from readerB
-#from readerA import reader_alice
-#from readerB import reader_bob
+from readerA_sq_batched import reader_alice 
+from readerB_sq_batched import reader_bob 
 from start_stop import send_stop_command
 import numpy as np
 import pickle
