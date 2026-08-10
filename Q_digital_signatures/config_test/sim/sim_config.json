@@ -1,7 +1,0 @@
-{
-    "angles": [0, 32, 96, 64],
-    "seed": 42,
-    "eta": 0.1,
-    "qberr": 0.05,
-    "pulse_distance": 1e-8
-}
