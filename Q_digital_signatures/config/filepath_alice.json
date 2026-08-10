@@ -1,0 +1,11 @@
+{
+    "angle": {
+        "hwsim": "/tmp/angle.fifo_alice",
+        "real": "/dev/xdma0_c2h_3"
+    },
+    "command": {
+        "hwsim": "/tmp/gc_startstop",
+        "real": "/tmp/gc_startstop"
+    }
+    
+}

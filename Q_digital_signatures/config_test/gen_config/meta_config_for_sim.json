@@ -1,0 +1,47 @@
+{
+    "ip": {
+        "alice": "127.0.0.1",
+        "bob": "127.0.0.1",
+        "alice_wrs": "127.0.0.1",
+        "bob_wrs": "127.0.0.1"
+    },
+    "port": {
+        "hw": 13000,
+        "hws": 13001,
+        "mon": 13002,
+        "kms_alice": 13003,
+        "kms_bob": 13004,
+        "gc": 13005,
+        "qber": 13006,
+        "node_alice": 13007,
+        "node_bob": 13008
+    },
+    "file": {
+        "gcr": "/tmp/gcr.fifo",
+        "gc": "/tmp/gc.fifo",
+        "angle": "/tmp/angle.fifo",
+        "result": "/tmp/result.fifo",
+        "gcuser": "",
+        "fpgareg": "/tmp/fpgareg",
+        "startstop": "/tmp/gc_startstop",
+        "hw_params": "/tmp/hw_params.txt",
+        "kms": "/tmp/kms.fifo"
+    },
+    "kms": {
+        "alice_peer_id": "QmTsMUaLQZh2PuRCAVRyH4CCSgg23bgoPmVa5mqDT1DL6S",
+        "bob_peer_id": "QmcRZWX5XnVFXDceknYLEu7LaRceU2W2StNAznpg4kafnd",
+        "key_lifetime_ms": 3600000,
+        "default_key_size": 512,
+        "max_key_count": 100000,
+        "authentication": false,
+        "ca_path": "./authentication/certs/ca.crt",
+        "cert_path": "./authentication/certs/cert.pem",
+        "key_path": "./authentication/private/eckey_pkcs8.pem"
+    },
+    "node": {
+        "key_path": "/home/georg/qline/keys/node.pk8",
+        "qtol": 0.09,
+        "key_size_per_round": 1000000
+    }
+}
+
