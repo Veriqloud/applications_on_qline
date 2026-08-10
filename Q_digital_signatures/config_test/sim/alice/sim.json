@@ -1,0 +1,16 @@
+{
+   "backend_config": {
+     "angles": [0, 32, 96, 64],
+     "seed": 42,
+     "eta": 0.1,
+     "qberr": 0.05, 
+     "pulse_distance": 1e-8
+   },
+   "ipc_config": {
+     "command_path": "/tmp/fpgareg_alice",
+     "angle_file_path": "/tmp/angle.fifo_alice",
+     "gc_read_file_path": "/tmp/gc.fifo_alice",
+     "hw_params_file_path": "/tmp/hw_params.txt_alice"
+   },
+   "log_level": "Info"
+}
