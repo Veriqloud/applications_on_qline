@@ -35,6 +35,10 @@ BATCH_SIZE = 3000
 CONFIDENCE = 0.997
 
 
+def text_to_bits(text: str) -> np.ndarray:
+    raw_bytes = np.frombuffer(text.encode('utf-8'), dtype=np.uint8)
+    return np.unpackbits(raw_bytes)  # one uint8 (0 or 1) per bit
+
 def calculate_batches(num_qubits):
     num_batches = num_qubits // BATCH_SIZE
     if num_qubits % BATCH_SIZE > 0:
@@ -153,7 +157,7 @@ def irreducible_polynomial(bH):
                 if c == 1:
                     exps.append(bH - i)
             '''
-            return coeffs  
+            return np.array(coeffs, dtype=np.uint8) 
 
 def coeffs_to_exps(coeffs, bH):
     exps = [bH]
@@ -224,7 +228,7 @@ def verify(key, bH, message, signature):
     key1 = key[:bH]
     key2 = key[bH:]
     hashed = signature ^ key2
-    coeffs = np.append([1], hashed[bH:])
+    coeffs = np.append(np.array([1], dtype=np.uint8), hashed[bH:])
     hashed = hashed[:bH]
     #T = Toeplitz(coeffs, key1, bH, len(message))
     #test = T @ message % 2
@@ -245,10 +249,27 @@ def apply_privacy_amplification(current_key, measured_qber, length, k, leak, s=N
     if s is None:
         s = toep_coeff(n, l)
     #print(current_key, n, l, s)
-    key, pad = two_universal_hash_pa(current_key, n, l, s)
+    key = two_universal_hash_pa_DS(current_key, n, l, s)
     #print(key, )
-    return np.unpackbits(key)[:l], s # shld change this to a version where pack bits is simply not done..
+    return key, s # shld change this to a version where pack bits is simply not done..
+
     
+def two_universal_hash_pa_DS(xkey, n, l, toep): 
+    """
+    compute the 2-universal hash using Toepliz matrix multiplication
+    :xkey: bitstring input (string of byte 0 and byte 1)
+    :n: length of xkey (in bit)
+    :l: final length (in bit)
+    :toep: random bit of length n+m 
+    """
+
+    #toep = secrets.token_bytes(nbytes+mytes)
+    logging.debug(f"[utils][hash_PA] n={n},l={l}, n+l={n+l}, toep len:{len(toep)},xkey len:{len(xkey)}")
+    res = np.empty(l, dtype=np.uint8)  # preallocate instead of np.append in a loop
+    for i in range(l):
+        a = toep[i:n+i] & xkey
+        res[i] = np.bitwise_xor.reduce(a)
+    return res
 
 
 

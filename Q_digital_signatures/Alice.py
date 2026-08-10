@@ -4,7 +4,7 @@ from async_communication import asrecv, assend
 from qkd import QKDHandlerAlice
 from start_stop import send_start_command
 import argparse
-from utils import sign, calculate_num_qubits
+from utils import sign, calculate_num_qubits, text_to_bits
 import numpy as np
 from datetime import datetime
 import json
@@ -20,7 +20,8 @@ class QDSHandlerAlice():
         self.bH = args.bH
         self.num_qubits, self.num_batches, self.batch_size = calculate_num_qubits(self.n, self.bH, 0.05)
         print(self.num_qubits, self.num_batches, self.batch_size)
-        self.message = [int(i) for i in "1010110110"]
+        self.message = "hello world"
+        self.message_bits = text_to_bits(self.message)
         self.mode = args.mode
         self.Charlie_key = None
         self.Bob_key = None
@@ -77,7 +78,7 @@ class QDSHandlerAlice():
         logging.debug(f"Alice-Bob key length: {len(self.Bob_key)}, Alice-Charlie key length: {len(self.Charlie_key)}, required total length: {2 * 3 * self.n * self.bH}")
 
         logging.info("--------------- [Alice] Beginning signatures of message ---------------")
-        signatures = [sign(key, self.bH,self.message) for key in Alice_key]
+        signatures = [sign(key, self.bH,self.message_bits) for key in Alice_key]
         logging.info("[Alice] Signatures completed.")
         
         logging.info("--------------- [Alice] Sending Signatures to Bob ---------------")

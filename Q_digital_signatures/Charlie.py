@@ -5,7 +5,7 @@ import random
 from datetime import datetime
 import logging
 import numpy as np
-from utils import verify
+from utils import verify, text_to_bits
 import json
 import argparse
 
@@ -22,6 +22,8 @@ class QDSHandlerCharlie:
         self.key = None
         self.Bob_half = []
         self.Bob_indices = []
+        self.Alice_message = ""
+        self.Alice_signatures = ""
         self.eMax = 0.0
         self.mode = args.mode
         self.path_config = args.path_config
@@ -60,6 +62,7 @@ class QDSHandlerCharlie:
 
     def handle_verification(self, request):
         self.Alice_message = request["message"]
+        self.Alice_message_bits = text_to_bits(self.Alice_message)
         self.Alice_signatures = request["signatures"]
         logging.info("--------------- [Charlie] Processing relevant keys and signatures. ---------------")
         logging.info(f"[Charlie] Sifting for signatures corresponding to the received Alice-Bob key blocks or Alice-Charlie key.")
@@ -69,7 +72,7 @@ class QDSHandlerCharlie:
         
         errors = 0
         for i in range(3 * self.n // 2):
-            if verify(key[i], self.bH, self.Alice_message, relevant_signatures[i]) is False:
+            if verify(key[i], self.bH, self.Alice_message_bits, relevant_signatures[i]) is False:
                 errors += 1
         
         logging.info(f"[Charlie] Number of errors detected during verification: {errors}")

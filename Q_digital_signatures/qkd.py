@@ -134,7 +134,7 @@ class QKDHandlerBob:
         # send I0, I1 to B
         await assend(self.writer, I)
 
-        initial_key = [x2[i] for i in I]
+        initial_key = np.array([x2[i] for i in I], dtype=np.uint8)
         length_initial_key = len(initial_key)
         logging.debug(f"[QKD] key after basis reconciliation: {initial_key[:10]}, length: {length_initial_key}")
         del x2
@@ -163,6 +163,7 @@ class QKDHandlerBob:
             return None
         
         remaining_key = [initial_key[i] for i in response['rest_indices']]
+        remaining_key=np.array(remaining_key, dtype=np.uint8)
         if measured_qber == 0.0:
             return remaining_key
         
@@ -198,7 +199,6 @@ class QKDHandlerBob:
         EC_key = np.zeros(0, dtype=np.uint8)
         logging.debug("[QKD] Truncating key based on size of error correction block.")
         remaining_key=remaining_key[:eccblock*(len(remaining_key)//eccblock)]
-        remaining_key=np.array(remaining_key, dtype=np.uint8)
         logging.info(f"half_key of length {len(remaining_key)}")
         
         leak = 0 
@@ -223,7 +223,7 @@ class QKDHandlerBob:
             except Exception as e:
                 logging.error(f"[S] End LDPC decoding: {e}")
 
-        logging.info("--------------- [QKD] Privacy Amplification ---------------")     
+        logging.info("--------------- [QKD] Privacy Amplification ---------------")  
         final_key, s = apply_privacy_amplification(EC_key, measured_qber, length_initial_key, verification_length, leak, Toeplitz_seed)
         
         time_ecc = delta_time(time1)
@@ -312,7 +312,7 @@ class QKDHandlerAlice:
         logging.debug(f"[QKD] Matched Indices (I): {I[:10]}, length: {len(I)}")
 
 
-        initial_key = [x1[i] for i in I]
+        initial_key = np.array([x1[i] for i in I], dtype=np.uint8)
         logging.info(f"[QKD] Key after basis reconciliation: {initial_key[:10]}, length: {len(initial_key)}")
         del x1
 
@@ -344,6 +344,7 @@ class QKDHandlerAlice:
             return None
         
         remaining_key = [initial_key[i] for i in rest_index]
+        remaining_key=np.array(remaining_key, dtype=np.uint8)
         if measured_qber == 0.0:
             return remaining_key
         
@@ -373,7 +374,7 @@ class QKDHandlerAlice:
         for i in range(0, minlen, eccblock):
             block = remaining_key[i:i+eccblock]
             try:
-                Salice_key.append(Hldpc @ block % 2)  # length need to fit the n of matrix
+                Salice_key.append((Hldpc @ block % 2).astype(np.uint8))  # length need to fit the n of matrix
                 leak+=Hldpc.shape[0]
 
             except Exception as e:

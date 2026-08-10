@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 import random
 import numpy as np
-from utils import verify
+from utils import verify, text_to_bits
 import json
 import argparse
 
@@ -27,6 +27,7 @@ class QDSHandlerBob():
         self.Charlie_half = []
         self.Charlie_indices = []
         self.Alice_signatures = []
+        self.Alice_message = ""
         self.mode = args.mode
         self.network_config = args.network_config
         self.path_config = args.path_config
@@ -112,6 +113,7 @@ class QDSHandlerBob():
 
     async def handle_verification(self, request):
         self.Alice_message = request["message"]
+        self.Alice_message_bits = text_to_bits(self.Alice_message)
         self.Alice_signatures = request["signatures"]
         logging.info("--------------- [Bob] Processing relevant keys and signatures. ---------------")
         logging.info(f"[Bob] Sifting for signatures corresponding to the Alice-Bob key or received Alice-Charlie key blocks")
@@ -122,7 +124,7 @@ class QDSHandlerBob():
         
         logging.info("--------------- [Bob] Beginning Verification. ---------------")
         for i in range(3 * self.n // 2):
-            if verify(key[i], self.bH, self.Alice_message, relevant_signatures[i]) is False:
+            if verify(key[i], self.bH, self.Alice_message_bits, relevant_signatures[i]) is False:
                 logging.info("[Bob] Error Detected during Verification. Protocol Aborted.")
                 return False
 
