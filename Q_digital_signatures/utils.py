@@ -160,6 +160,14 @@ def irreducible_polynomial(bH):
             return np.array(coeffs, dtype=np.uint8) 
 
 def coeffs_to_exps(coeffs, bH):
+    exps = []
+    for i, c in enumerate(coeffs[:-1]):
+        if c == 1:
+            exps.append(bH - i)
+    return exps
+
+''' Old version
+def coeffs_to_exps(coeffs, bH):
     exps = [bH]
     for i, c in enumerate(coeffs[1:-1], start=1):
         if c == 1:
@@ -188,8 +196,8 @@ def toeplitz_prealloc(coeffs, state, bH, bM):
         T[:, j] = lfsr.state
         lfsr.next()
     return T
-
-''' Old version
+'''
+''' Oldest version
 def Toeplitz(coeffs, state, bH, bM):
 
     # coeffs = [1, c_{bH-1}, ..., c_1, c_0], degree bH, monic, c_0 must be 1
@@ -211,6 +219,36 @@ def Toeplitz(coeffs, state, bH, bM):
     return T
 '''
 
+def toeplitz_raw_numpy(coeffs, state, bH, bM):
+    """Same output as toeplitz_prealloc, but steps the LFSR manually
+    in numpy instead of calling pylfsr.next() each iteration."""
+    # Build the feedback-tap mask directly from coeffs, matching
+    # coeffs_to_exps' convention (bH is always a tap; middle coeffs
+    # optionally are).
+    exps = coeffs_to_exps(coeffs, bH)  # e.g. [10, 8, 3]
+
+    state = np.array(state, dtype=np.uint8)
+    T = np.empty((bH, bM), dtype=np.uint8)
+
+    # tap_indices: which positions of `state` (0-indexed from the
+    # "s_{n-1}" end) contribute to the feedback bit. Verify against
+    # pylfsr's actual state ordering before trusting this mapping.
+    tap_indices = [e - 1 for e in exps]
+    #print(tap_indices)
+    #print(exps)
+
+    for j in range(bM):
+        T[:, j] = state
+        #print(T[:, j], "v3")
+        feedback = np.bitwise_xor.reduce(state[tap_indices])
+        state = np.concatenate(([feedback], state[:-1]))
+
+    return T
+
+def matvec_naive(T, message):
+    message = np.asarray(message, dtype=np.uint8)
+    return (T @ message) % 2
+
 def sign(key, bH, message):
     
     key1 = key[:bH]
@@ -218,8 +256,12 @@ def sign(key, bH, message):
     coeffs = irreducible_polynomial(bH)
     #T = Toeplitz(coeffs, key1, bH, len(message))
     #hashed = np.concatenate((T @ message % 2, coeffs[1:]))
-    T = toeplitz_prealloc(coeffs, key1, bH, len(message))
-    hashed = np.concatenate((gf2_matvec_popcount(T, message), coeffs[1:]))
+    hashed = np.concatenate((matvec_naive(toeplitz_raw_numpy(coeffs, key1, bH, len(message)), message), coeffs[1:]))
+    #print("test1")
+    #T = toeplitz_prealloc(coeffs, key1, bH, len(message))
+    #print("test2")
+    #hashed = np.concatenate((gf2_matvec_popcount(T, message), coeffs[1:]))
+    #print("test3")
     signed = hashed ^ key2
     return signed
 
@@ -232,8 +274,9 @@ def verify(key, bH, message, signature):
     hashed = hashed[:bH]
     #T = Toeplitz(coeffs, key1, bH, len(message))
     #test = T @ message % 2
-    T = toeplitz_prealloc(coeffs, key1, bH, len(message))
-    test = gf2_matvec_popcount(T, message)
+    test = matvec_naive(toeplitz_raw_numpy(coeffs, key1, bH, len(message)), message)
+    #T = toeplitz_prealloc(coeffs, key1, bH, len(message))
+    #test = gf2_matvec_popcount(T, message)
     if all(test[i] == hashed[i] for i in range(bH)):
         return True
     else:
@@ -242,6 +285,7 @@ def verify(key, bH, message, signature):
 
 def apply_privacy_amplification(current_key, measured_qber, length, k, leak, s=None):
     n = len(current_key)
+    #print(n, k, leak, q=measured_qber, eps_sec=EPS_SEC1, eps_cor=EPS_COR)
     #l = randomness_extraction_length_qkd(length, k, leak, q=measured_qber, eps_sec=EPS_SEC1, eps_cor=EPS_COR)
     l = randomness_extraction_length_qkd(n, k, leak, q=measured_qber, eps_sec=EPS_SEC1, eps_cor=EPS_COR)
     #l = min(l, 256)
@@ -292,11 +336,14 @@ def initcsv(name):
         return path
 
 
-def writecsv(path, row):
+def writecsv(path, row, add_timestamp):
     with open(path, mode="a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
-        writer.writerow([timestamp, *row])
+        if add_timestamp is True:
+            writer.writerow([timestamp, *row])
+        else:
+            writer.writerow(row)
 
 
 
