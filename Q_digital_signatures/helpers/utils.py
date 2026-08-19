@@ -14,6 +14,7 @@ from pathlib import Path
 from scipy.io import mmread
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import reverse_cuthill_mckee
+from scipy.stats import binom
 import time
 from datetime import timedelta, datetime
 import queue
@@ -33,6 +34,25 @@ EPS_COR=2**(-24)
 
 BATCH_SIZE = 3000
 CONFIDENCE = 0.997
+
+
+def repudiation_prob(n, bM, bH, bH_prime, e_max):
+    right_term = (bM + 4 * n * bH)/math.pow(2, bH_prime - 1)
+    left_term = 1
+    for i in range(e_max):
+        left_term *= (n/2 - i)/(n-i)
+
+    #print(left_term, right_term)
+    return max(left_term, right_term)
+
+def forgery_prob(n, bM, bH, e_max):
+    a = n//2 - e_max
+    b = n//2
+    c = bM * math.pow(2, 1 - bH)
+    #print(a, b, c)
+
+    Xi = binom.sf(a - 1, b, c)
+    return Xi
 
 
 def text_to_bits(text: str) -> np.ndarray:
@@ -759,8 +779,8 @@ def randomness_extraction_length_qkd(n, k, leak, q, eps_sec, eps_cor):
     small = np.log(2/(eps_sec*eps_sec*eps_cor))/np.log(2) # ~100
     final_length_fs = int(n - leak - (h(q2) * n) - small)
 
-    logging.debug(f"[utils][extraction] For n = {n}, k = {k}, q = {q}, leak = {leak},")
-    logging.debug(f"[utils][extraction] finite size bound: l = {final_length_fs} bits.") #256
+    #logging.debug(f"[utils][extraction] For n = {n}, k = {k}, q = {q}, leak = {leak},")
+    #logging.debug(f"[utils][extraction] finite size bound: l = {final_length_fs} bits.") #256
 
     return max(int(final_length_fs), 0)
 
