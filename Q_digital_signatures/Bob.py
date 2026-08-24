@@ -1,20 +1,23 @@
 import asyncio
-from async_communication import asrecv, assend
-from qkd import QKDHandlerBob
+from helpers.async_communication import asrecv, assend
+from helpers.qkd import QKDHandlerBob
 import logging
 from datetime import datetime
 import random
 import numpy as np
-from utils import verify, text_to_bits
+from helpers.utils import verify, text_to_bits
 import json
 import argparse
+import time
+import csv
 
 
 all_connections_done = asyncio.Event()
 
 path_config = "config_test/sim/bob/qds.json"
 network_config = "config/network.json"
-mode = "hwsim"
+timelog_path = "log/timelog_Bob.csv"
+timelog = {}
 
 
 class QDSHandlerBob():
@@ -47,6 +50,8 @@ class QDSHandlerBob():
  
     
     async def run(self):
+        t_total = time.perf_counter()
+
         logging.info(f"Charlie's ip adress: {self.Charlie_host}")
         logging.info(f"Charlie's port: {self.Charlie_port}")
         logging.info(f"Bob's ip adress: {self.Bob_host}")
@@ -59,31 +64,47 @@ class QDSHandlerBob():
         )
         logging.info("=============== [Bob] Server started. Waiting for Connections. ===============")
 
+        
         async with server: 
             await all_connections_done.wait()
             server.close()
             await server.wait_closed()
             logging.info("[Bob] Server Closed.")
+            timelog["t_total"] = time.perf_counter() - t_total
+            with open(timelog_path, "a", newline='') as csvfile:
+                fieldnames = ["timestamp", "id", "bM", "n", "bH", "t_total", "t_QKD", "t_key_transfer", "t_verifications_total", "t_single_verification", "mode"]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                #writer.writeheader()
+                writer.writerow(timelog)
+                print(timelog)
+
         
 
     async def handle_QKD(self, reader, writer, request):
+        t = time.perf_counter()
         QKD_Bob = QKDHandlerBob(reader, writer, path_config = self.path_config, mode=self.mode, num_qubits=request["num_qubits"],  num_batches=request["num_batches"], batch_size=request["batch_size"])
         logging.info("[Bob][QKD] Created Bob's QKD handler object.")
         self.n = request["n"]
         self.bH = request["bH"]
+        timelog["n"] = self.n
+        timelog["bH"] = self.bH
+        timelog["id"] = request["id"]
+        timelog["mode"] = self.mode
         self.key = await QKD_Bob.run_protocol()
         #print("Bob_key", self.key[:10])
         logging.info(f"[Bob] Alice-Bob key: {self.key[:10]}, length: {len(self.key)}")
 
+        
         writer.close()
         await writer.wait_closed()
-
+        timelog["t_QKD"] = time.perf_counter() - t
         #so Alice and Charlie QKD shld happen first, then Alice and Bob QKD will trigger the key exchange
         
     
     async def handle_key_transfer(self, request):
         #self.n = 5
         #self.bH = 17
+        t = time.perf_counter()
         reader, writer = await asyncio.open_connection(self.Charlie_host, self.Charlie_port)
         logging.info(f"[Bob][TCP] Connected to {self.Charlie_host}:{self.Charlie_port}")
 
@@ -106,12 +127,14 @@ class QDSHandlerBob():
         self.Charlie_half = response["Charlie_half"]
         self.Charlie_indices = response["Charlie_indices"]
         logging.info(f"[Bob] Number of Charlie's bits received: {sum([len(block) for block in self.Charlie_half])}")
-        
+
         writer.close()
         await writer.wait_closed()
+        timelog["t_key_transfer"] = time.perf_counter() - t
     
 
     async def handle_verification(self, request):
+        t = time.perf_counter()
         self.Alice_message = request["message"]
         self.Alice_message_bits = text_to_bits(self.Alice_message)
         self.Alice_signatures = request["signatures"]
@@ -123,11 +146,17 @@ class QDSHandlerBob():
         logging.info(f"[Bob] Combined Alice-Bob key blocks and received Alice-Charlie key blocks to form {len(key)} blocks, totalling {sum([len(block) for block in key])} bits")
         
         logging.info("--------------- [Bob] Beginning Verification. ---------------")
+        timings = []
         for i in range(3 * self.n // 2):
+            t_indiv = time.perf_counter()
             if verify(key[i], self.bH, self.Alice_message_bits, relevant_signatures[i]) is False:
                 logging.info("[Bob] Error Detected during Verification. Protocol Aborted.")
                 return False
+            timings.append(time.perf_counter() - t_indiv)
 
+        timelog["t_single_verification"] = sum(timings)/(3 * self.n // 2)
+        timelog["t_verifications_total"] = time.perf_counter() - t
+        timelog["bM"] = len(self.Alice_message_bits)
         logging.info("[Bob] Verification completed without errors detected.")
         return True
 
@@ -177,6 +206,8 @@ class QDSHandlerBob():
                 logging.info(f"*************** Response: {response} ***************")
                 # print(response)
 
+
+
             logging.info("[Bob] All connections completed, closing server.")
             all_connections_done.set()
     
@@ -198,13 +229,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_filename = f"sim_bob_{timestamp}.log"
+    timelog["timestamp"] = timestamp
+
+    log_filename = f"log/sim_bob_{timestamp}.log"
     # Configure logging
     logging.basicConfig(
         filename=log_filename,
         format="%(asctime)s - %(levelname)s - %(message)s",
-        level=logging.INFO, 
-        #level=logging.DEBUG, 
+        #level=logging.INFO, 
+        level=logging.DEBUG, 
         force=True
     )
     bob = QDSHandlerBob(args)

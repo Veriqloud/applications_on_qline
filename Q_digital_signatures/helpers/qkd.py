@@ -1,15 +1,15 @@
 import asyncio
-from utils import *
-from readerA_sq_batched import reader_alice 
-from readerB_sq_batched import reader_bob 
-from start_stop import send_stop_command
+from helpers.utils import *
+from helpers.readerA_sq_batched import reader_alice 
+from helpers.readerB_sq_batched import reader_bob 
+from helpers.start_stop import send_stop_command
 import numpy as np
 import pickle
 import logging
 import struct
 import time 
 from datetime import timedelta
-from async_communication import assend, asrecv
+from helpers.async_communication import assend, asrecv
 
 
 '''
@@ -383,7 +383,7 @@ class QKDHandlerAlice:
         logging.info("--------------- [QKD] Privacy Amplification ---------------")
         logging.info("[QKD] Computing final key and Toeplitz seed from Privacy amplification")
         # print(remaining_key[:10], measured_qber, mid, leak)
-        final_key, s = apply_privacy_amplification(remaining_key, measured_qber, length_initial_key, mid, leak)
+        final_key, s = apply_privacy_amplification(remaining_key, measured_qber, length_initial_key, len(verify_index), leak)
 
         logging.info("[QKD][TCP] send EC syndromes and Toeplitz seed to Bob/Charlie.")
         # send syndromes to the server

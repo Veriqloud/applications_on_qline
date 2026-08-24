@@ -14,6 +14,7 @@ from pathlib import Path
 from scipy.io import mmread
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import reverse_cuthill_mckee
+from scipy.stats import binom
 import time
 from datetime import timedelta, datetime
 import queue
@@ -35,6 +36,25 @@ BATCH_SIZE = 3000
 CONFIDENCE = 0.997
 
 
+def repudiation_prob(n, bM, bH, bH_prime, e_max):
+    right_term = (bM + 4 * n * bH)/math.pow(2, bH_prime - 1)
+    left_term = 1
+    for i in range(e_max):
+        left_term *= (n/2 - i)/(n-i)
+
+    #print(left_term, right_term)
+    return max(left_term, right_term)
+
+def forgery_prob(n, bM, bH, e_max):
+    a = n//2 - e_max
+    b = n//2
+    c = bM * math.pow(2, 1 - bH)
+    #print(a, b, c)
+
+    Xi = binom.sf(a - 1, b, c)
+    return Xi
+
+
 def text_to_bits(text: str) -> np.ndarray:
     raw_bytes = np.frombuffer(text.encode('utf-8'), dtype=np.uint8)
     return np.unpackbits(raw_bytes)  # one uint8 (0 or 1) per bit
@@ -48,14 +68,7 @@ def calculate_batches(num_qubits):
 
 
 def calculate_num_qubits(n, bH, estimated_qber, confidence=CONFIDENCE):
-    '''
-    #return 3 * n * bH * 2 * 2 
-    tmp = int(3 * (n+1) * bH * 2 * 2 * 1.05)
-    if tmp % 2 == 0: # always return even number of qubits
-        return tmp
-    else:
-        return tmp + 1
-    '''
+
     key_length = 3 * n * bH
     length_after_BR = invert_length(key_length, estimated_qber)
     num_qubits = int(basis_reconciliation_num_qubits(length_after_BR, confidence))
@@ -111,7 +124,7 @@ def estimate_final_key_length(initial_length, measured_qber):
 
 
 def invert_length(target_final_length, qber,
-                   lo=10000, hi=3_000_000, tol=0):
+                   lo=10000, hi=300_000_000, tol=0):
     """
     Finds the smallest initial_length such that l1 (or l2) >= target_final_length,
     for a given measured_qber. Assumes the function is non-decreasing in initial_length.
@@ -151,65 +164,46 @@ def irreducible_polynomial(bH):
         p = galois.Poly(coeffs, field=GF)
 
         if p.is_irreducible():
-            ''' Old code, depends on which represenatation is needed
-            exps = [bH]
-            for i, c in enumerate(coeffs[1:-1], start=1):   # x^(bH-1) down to x^1
-                if c == 1:
-                    exps.append(bH - i)
-            '''
             return np.array(coeffs, dtype=np.uint8) 
 
+
 def coeffs_to_exps(coeffs, bH):
-    exps = [bH]
-    for i, c in enumerate(coeffs[1:-1], start=1):
+    exps = []
+    for i, c in enumerate(coeffs[:-1]):
         if c == 1:
             exps.append(bH - i)
     return exps
 
-_POPCOUNT_LUT = np.array([bin(i).count("1") & 1 for i in range(256)], dtype=np.uint8)
 
-def gf2_matvec_popcount(T, vec):
-    T = np.ascontiguousarray(T, dtype=np.uint8)
-    vec = np.ascontiguousarray(vec, dtype=np.uint8)
+def toeplitz_raw_numpy(coeffs, state, bH, bM):
+    """Same output as toeplitz_prealloc, but steps the LFSR manually
+    in numpy instead of calling pylfsr.next() each iteration."""
+    # Build the feedback-tap mask directly from coeffs, matching
+    # coeffs_to_exps' convention (bH is always a tap; middle coeffs
+    # optionally are).
+    exps = coeffs_to_exps(coeffs, bH)  # e.g. [10, 8, 3]
 
-    Tp = np.packbits(T, axis=1)
-    vp = np.packbits(vec)
-
-    anded = Tp & vp
-    parity_per_byte = _POPCOUNT_LUT[anded]
-    return np.bitwise_xor.reduce(parity_per_byte, axis=1)
-
-
-def toeplitz_prealloc(coeffs, state, bH, bM):
-    exps = coeffs_to_exps(coeffs, bH)
-    lfsr = LFSR(exps, state)
+    state = np.array(state, dtype=np.uint8)
     T = np.empty((bH, bM), dtype=np.uint8)
+
+    # tap_indices: which positions of `state` (0-indexed from the
+    # "s_{n-1}" end) contribute to the feedback bit. Verify against
+    # pylfsr's actual state ordering before trusting this mapping.
+    tap_indices = [e - 1 for e in exps]
+    #print(tap_indices)
+    #print(exps)
+
     for j in range(bM):
-        T[:, j] = lfsr.state
-        lfsr.next()
-    return T
-
-''' Old version
-def Toeplitz(coeffs, state, bH, bM):
-
-    # coeffs = [1, c_{bH-1}, ..., c_1, c_0], degree bH, monic, c_0 must be 1
-    # pylfsr fpoly wants exponents with a 1-coefficient, EXCLUDING the
-    # implicit constant term (x^0), and INCLUDING the top degree bH.
-    exps = [bH]
-    for i, c in enumerate(coeffs[1:-1], start=1):   # x^(bH-1) down to x^1
-        if c == 1:
-            exps.append(bH - i) # e.g. [10, 8, 3] instead of a raw bitmask
-    lfsr = LFSR(exps, state)
-
-    columns = []
-
-    for _ in range(bM):
-        columns.append(lfsr.state)
-        lfsr.next()
-    T = np.column_stack(columns)
+        T[:, j] = state
+        #print(T[:, j], "v3")
+        feedback = np.bitwise_xor.reduce(state[tap_indices])
+        state = np.concatenate(([feedback], state[:-1]))
 
     return T
-'''
+
+def matvec_naive(T, message):
+    message = np.asarray(message, dtype=np.uint8)
+    return (T @ message) % 2
 
 def sign(key, bH, message):
     
@@ -218,8 +212,12 @@ def sign(key, bH, message):
     coeffs = irreducible_polynomial(bH)
     #T = Toeplitz(coeffs, key1, bH, len(message))
     #hashed = np.concatenate((T @ message % 2, coeffs[1:]))
-    T = toeplitz_prealloc(coeffs, key1, bH, len(message))
-    hashed = np.concatenate((gf2_matvec_popcount(T, message), coeffs[1:]))
+    hashed = np.concatenate((matvec_naive(toeplitz_raw_numpy(coeffs, key1, bH, len(message)), message), coeffs[1:]))
+    #print("test1")
+    #T = toeplitz_prealloc(coeffs, key1, bH, len(message))
+    #print("test2")
+    #hashed = np.concatenate((gf2_matvec_popcount(T, message), coeffs[1:]))
+    #print("test3")
     signed = hashed ^ key2
     return signed
 
@@ -232,8 +230,9 @@ def verify(key, bH, message, signature):
     hashed = hashed[:bH]
     #T = Toeplitz(coeffs, key1, bH, len(message))
     #test = T @ message % 2
-    T = toeplitz_prealloc(coeffs, key1, bH, len(message))
-    test = gf2_matvec_popcount(T, message)
+    test = matvec_naive(toeplitz_raw_numpy(coeffs, key1, bH, len(message)), message)
+    #T = toeplitz_prealloc(coeffs, key1, bH, len(message))
+    #test = gf2_matvec_popcount(T, message)
     if all(test[i] == hashed[i] for i in range(bH)):
         return True
     else:
@@ -242,6 +241,7 @@ def verify(key, bH, message, signature):
 
 def apply_privacy_amplification(current_key, measured_qber, length, k, leak, s=None):
     n = len(current_key)
+    #print(n, k, leak, q=measured_qber, eps_sec=EPS_SEC1, eps_cor=EPS_COR)
     #l = randomness_extraction_length_qkd(length, k, leak, q=measured_qber, eps_sec=EPS_SEC1, eps_cor=EPS_COR)
     l = randomness_extraction_length_qkd(n, k, leak, q=measured_qber, eps_sec=EPS_SEC1, eps_cor=EPS_COR)
     #l = min(l, 256)
@@ -292,11 +292,14 @@ def initcsv(name):
         return path
 
 
-def writecsv(path, row):
+def writecsv(path, row, add_timestamp):
     with open(path, mode="a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
-        writer.writerow([timestamp, *row])
+        if add_timestamp is True:
+            writer.writerow([timestamp, *row])
+        else:
+            writer.writerow(row)
 
 
 
@@ -712,8 +715,8 @@ def randomness_extraction_length_qkd(n, k, leak, q, eps_sec, eps_cor):
     small = np.log(2/(eps_sec*eps_sec*eps_cor))/np.log(2) # ~100
     final_length_fs = int(n - leak - (h(q2) * n) - small)
 
-    logging.debug(f"[utils][extraction] For n = {n}, k = {k}, q = {q}, leak = {leak},")
-    logging.debug(f"[utils][extraction] finite size bound: l = {final_length_fs} bits.") #256
+    #logging.debug(f"[utils][extraction] For n = {n}, k = {k}, q = {q}, leak = {leak},")
+    #logging.debug(f"[utils][extraction] finite size bound: l = {final_length_fs} bits.") #256
 
     return max(int(final_length_fs), 0)
 

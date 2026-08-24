@@ -2,7 +2,7 @@ import json
 import logging
 import argparse
 import time
-from utils import read_exactly
+from helpers.utils import read_exactly
 
 
 def reader_alice(mode, num_batches, batch_size, path_config):

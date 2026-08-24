@@ -3,7 +3,7 @@ import logging
 import argparse
 import time 
 from datetime import timedelta
-from utils import read_exactly
+from helpers.utils import read_exactly
 
 #from applications_on_qline.Q_oblivious_transfer.utils import read_exactly
 

@@ -1,19 +1,23 @@
 import asyncio
-from async_communication import asrecv, assend
-from qkd import QKDHandlerBob
+from helpers.async_communication import asrecv, assend
+from helpers.qkd import QKDHandlerBob
 import random
 from datetime import datetime
 import logging
 import numpy as np
-from utils import verify, text_to_bits
+from helpers.utils import verify, text_to_bits
 import json
 import argparse
+import time
+import csv
 
 all_connections_done = asyncio.Event()
 
 path_config = "config_test/sim/bob/qds.json"
 network_config = "config/network.json"
-mode = "hwsim"
+timelog_path = "log/timelog_Charlie.csv"
+timelog = {}
+
 
 class QDSHandlerCharlie:
     def __init__(self, args):
@@ -24,7 +28,7 @@ class QDSHandlerCharlie:
         self.Bob_indices = []
         self.Alice_message = ""
         self.Alice_signatures = ""
-        self.eMax = 0.0
+        self.eMax = None
         self.mode = args.mode
         self.path_config = args.path_config
         self.network_config = args.network_config
@@ -44,10 +48,14 @@ class QDSHandlerCharlie:
 
 
     async def run(self):
+        t_total = time.perf_counter()
+
         logging.info(f"Charlie's ip adress: {self.Charlie_host}")
         logging.info(f"Charlie's port: {self.Charlie_port}")
         logging.info(f"Bob's ip adress: {self.Bob_host}")
         logging.info(f"Bob's port: {self.Bob_port}")
+
+        timestamp
 
         server = await asyncio.start_server(
             charlie.dispatcher,
@@ -58,9 +66,59 @@ class QDSHandlerCharlie:
             await all_connections_done.wait()
             server.close()
             await server.wait_closed()
+            logging.info("[Charlie] Server Closed.")
+            timelog["t_total"] = time.perf_counter() - t_total
+            with open(timelog_path, "a", newline='') as csvfile:
+                fieldnames = ["timestamp", "id", "bM", "n", "bH", "e_max", "t_total", "t_QKD", "t_key_transfer", "t_verifications_total", "t_single_verification", "mode"]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                #writer.writeheader()
+                writer.writerow(timelog)
+                print(timelog)
+
+
+    async def handle_QKD(self, reader, writer, request):
+        t = time.perf_counter()
+        QKD_Charlie = QKDHandlerBob(reader, writer, path_config=self.path_config, mode=self.mode, num_qubits=request["num_qubits"], num_batches=request["num_batches"], batch_size=request["batch_size"])
+        logging.info("[Charlie][QKD] Created Charlie's QKD handler object.")
+        self.n = request["n"]
+        self.bH = request["bH"]
+        self.eMax = request["eMax"]
+        timelog["n"] = self.n
+        timelog["bH"] = self.bH
+        timelog["e_max"] = self.eMax
+        timelog["id"] = request["id"]
+        timelog["mode"] = self.mode
+        self.key = await QKD_Charlie.run_protocol()
+        logging.info(f"[Charlie] Alice-Charlie key: {self.key[:10]}, length: {len(self.key)}")
+
+        writer.close()
+        await writer.wait_closed()
+        timelog["t_QKD"] = time.perf_counter() - t
+
+    async def handle_key_transfer(self, reader, writer, request):
+        t = time.perf_counter()
+        self.Bob_half = request["Bob_half"]
+        self.Bob_indices = request["Bob_indices"]
+        logging.info(f"[Charlie] Number of Bob's bits received: {sum([len(block) for block in self.Bob_half])}")
+        
+
+        logging.info("---------- [Charlie] Randomly selecting half of blocks to send to Bob. ----------")
+        indices = list(range(self.n))
+        random.shuffle(indices)
+        Charlie_half = [self.key[i * (3 * self.bH): (i+1) * (3 * self.bH)] for i in indices[:self.n//2]]
+        logging.info(f"n: {self.n}, bH: {self.bH}")
+        logging.info(f"Number of bits which should be sent: {3 * self.n * self.bH //2}")
+        logging.info(f"Number of bits to be sent: {sum([len(block) for block in Charlie_half])}")
+        logging.info(f"---------- [Charlie][TCP] Sending half of Charlie's key and their positions. ----------")
+        await assend(writer, {"Charlie_indices": indices[:self.n//2], "Charlie_half": Charlie_half})
+
+        writer.close()
+        await writer.wait_closed()
+        timelog["t_key_transfer"] = time.perf_counter() - t
 
 
     def handle_verification(self, request):
+        t = time.perf_counter()
         self.Alice_message = request["message"]
         self.Alice_message_bits = text_to_bits(self.Alice_message)
         self.Alice_signatures = request["signatures"]
@@ -71,9 +129,16 @@ class QDSHandlerCharlie:
         logging.info(f"[Charlie] Combined received Alice-Bob key blocks and Alice-Charlie key to form {len(key)} blocks, totalling {sum([len(block) for block in key])} bits")
         
         errors = 0
+        timings = []
         for i in range(3 * self.n // 2):
+            t_indiv = time.perf_counter()
             if verify(key[i], self.bH, self.Alice_message_bits, relevant_signatures[i]) is False:
                 errors += 1
+            timings.append(time.perf_counter() - t_indiv)
+        timelog["t_single_verification"] = sum(timings)/(3 * self.n // 2)
+
+        timelog["t_verifications_total"] = time.perf_counter() - t
+        timelog["bM"] = len(self.Alice_message_bits)
         
         logging.info(f"[Charlie] Number of errors detected during verification: {errors}")
         return errors
@@ -84,42 +149,13 @@ class QDSHandlerCharlie:
 
         if request["type"] == "QKD":
             logging.info("=============== [Charlie] QKD with Alice ===============")
-            QKD_Charlie = QKDHandlerBob(reader, writer, path_config=self.path_config, mode=self.mode, num_qubits=request["num_qubits"], num_batches=request["num_batches"], batch_size=request["batch_size"])
-            logging.info("[Charlie][QKD] Created Charlie's QKD handler object.")
-            self.n = request["n"]
-            self.bH = request["bH"]
-            self.key = await QKD_Charlie.run_protocol()
-            logging.info(f"[Charlie] Alice-Charlie key: {self.key[:10]}, length: {len(self.key)}")
-
-            writer.close()
-            await writer.wait_closed()
+            await self.handle_QKD(reader, writer, request)
 
         elif request["type"] == "KEY_TRANSFER":
-            # await handle_key_transfer(reader, writer, request)
-
             logging.info("=============== [Charlie] Key Exchange with Bob ===============")
+            await self.handle_key_transfer(reader, writer, request) 
 
-            self.Bob_half = request["Bob_half"]
-            self.Bob_indices = request["Bob_indices"]
-            logging.info(f"[Charlie] Number of Bob's bits received: {sum([len(block) for block in self.Bob_half])}")
             
-            #self.n = request["n"]
-            #self.bH = request["bH"]
-            #self.n = 5
-            #self.bH = 17
-
-            logging.info("---------- [Charlie] Randomly selecting half of blocks to send to Bob. ----------")
-            indices = list(range(self.n))
-            random.shuffle(indices)
-            Charlie_half = [self.key[i * (3 * self.bH): (i+1) * (3 * self.bH)] for i in indices[:self.n//2]]
-            logging.info(f"n: {self.n}, bH: {self.bH}")
-            logging.info(f"Number of bits which should be sent: {3 * self.n * self.bH //2}")
-            logging.info(f"Number of bits to be sent: {sum([len(block) for block in Charlie_half])}")
-            logging.info(f"---------- [Charlie][TCP] Sending half of Charlie's key and their positions. ----------")
-            await assend(writer, {"Charlie_indices": indices[:self.n//2], "Charlie_half": Charlie_half})
-
-            writer.close()
-            await writer.wait_closed()
             
         elif request["type"] == "SIGNATURES":
             logging.info("--- Signatures received from Bob. Beginning verification. ---")
@@ -149,6 +185,8 @@ if __name__ == "__main__":
                         help="Path to FIFO config file (default: config_test/sim/bob/qds.json)")
     parser.add_argument("-c", "--network_config", type=str, default="config/network.json",
                         help="Path to network config file")
+    #parser.add_argument("-e", "--eMax", type=str, default=21,
+    #                    help="Charlie's error tolerance")
     #parser.add_argument("-q", "--qber", type=float, default=0.055,
     #                    help="Quantum bit error rate (default: 0.055)")
     parser.add_argument("-l", "--loglive", action="store_true",
@@ -158,7 +196,9 @@ if __name__ == "__main__":
 
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_filename = f"sim_charlie_{timestamp}.log"
+    timelog["timestamp"] = timestamp
+
+    log_filename = f"log/sim_charlie_{timestamp}.log"
     # Configure logging
     logging.basicConfig(
         filename=log_filename,
