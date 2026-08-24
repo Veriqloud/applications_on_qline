@@ -24,13 +24,12 @@ class QDSHandlerAlice():
     def __init__(self, args):
 
         self.id = random.randrange(0, 1_000_000_000)
-        timelog["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S,%f")[:-3]
         timelog["id"] = self.id
         
         self.n = args.num_blocks
         self.bH = args.bH
         self.num_qubits, self.num_batches, self.batch_size = calculate_num_qubits(self.n, self.bH, 0.08)
-        self.message = "1" * 1000  #"hello world!"
+        self.message = "1" * 1_0  #"hello world!"
         self.message_bits = text_to_bits(self.message)
         self.mode = args.mode
         self.Charlie_key = None
@@ -52,6 +51,7 @@ class QDSHandlerAlice():
         timelog["e_max"] = self.Charlie_eMax
         timelog["forg_prob"] = forg_prob
         timelog["rep_prob"] = rep_prob
+        timelog["mode"] = self.mode
 
         with open(args.config_network, 'r') as f:
             network = json.load(f)
@@ -132,6 +132,7 @@ class QDSHandlerAlice():
 
 
     async def run(self):
+        t_total = time.perf_counter()
 
         logging.info(f"Charlie's ip adress: {self.Charlie_host}")
         logging.info(f"Charlie's port: {self.Charlie_port}")
@@ -158,8 +159,9 @@ class QDSHandlerAlice():
         logging.info("=============== [Alice] Message signature ===============")
         await self.sign(self.Bob_host, self.Bob_port)
 
+        timelog["t_total"] = time.perf_counter() - t_total
         with open(timelog_path, "a", newline='') as csvfile:
-            fieldnames = ["timestamp", "id", "bM", "n", "bH", "b_prime_H", "e_max", "forg_prob", "rep_prob", "t_QKD_Bob", "t_QKD_Charlie", "t_signatures_total", "t_single_signature"]
+            fieldnames = ["timestamp", "id", "bM", "n", "bH", "b_prime_H", "e_max", "forg_prob", "rep_prob", "t_total", "t_QKD_Bob", "t_QKD_Charlie", "t_signatures_total", "t_single_signature", "mode"]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             #writer.writeheader()
             writer.writerow(timelog)
@@ -191,6 +193,8 @@ if __name__ == "__main__":
     
 
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    timelog["timestamp"] = timestamp
+
     log_filename = f"log/sim_alice_{timestamp}.log"
     # Configure logging
     logging.basicConfig(

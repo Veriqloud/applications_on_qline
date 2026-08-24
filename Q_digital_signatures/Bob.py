@@ -50,6 +50,8 @@ class QDSHandlerBob():
  
     
     async def run(self):
+        t_total = time.perf_counter()
+
         logging.info(f"Charlie's ip adress: {self.Charlie_host}")
         logging.info(f"Charlie's port: {self.Charlie_port}")
         logging.info(f"Bob's ip adress: {self.Bob_host}")
@@ -62,11 +64,20 @@ class QDSHandlerBob():
         )
         logging.info("=============== [Bob] Server started. Waiting for Connections. ===============")
 
+        
         async with server: 
             await all_connections_done.wait()
             server.close()
             await server.wait_closed()
             logging.info("[Bob] Server Closed.")
+            timelog["t_total"] = time.perf_counter() - t_total
+            with open(timelog_path, "a", newline='') as csvfile:
+                fieldnames = ["timestamp", "id", "bM", "n", "bH", "t_total", "t_QKD", "t_key_transfer", "t_verifications_total", "t_single_verification", "mode"]
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                #writer.writeheader()
+                writer.writerow(timelog)
+                print(timelog)
+
         
 
     async def handle_QKD(self, reader, writer, request):
@@ -78,6 +89,7 @@ class QDSHandlerBob():
         timelog["n"] = self.n
         timelog["bH"] = self.bH
         timelog["id"] = request["id"]
+        timelog["mode"] = self.mode
         self.key = await QKD_Bob.run_protocol()
         #print("Bob_key", self.key[:10])
         logging.info(f"[Bob] Alice-Bob key: {self.key[:10]}, length: {len(self.key)}")
@@ -194,12 +206,7 @@ class QDSHandlerBob():
                 logging.info(f"*************** Response: {response} ***************")
                 # print(response)
 
-            with open(timelog_path, "a", newline='') as csvfile:
-                fieldnames = ["timestamp", "id", "bM", "n", "bH", "t_QKD", "t_key_transfer", "t_verifications_total", "t_single_verification"]
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                #writer.writeheader()
-                writer.writerow(timelog)
-                print(timelog)
+
 
             logging.info("[Bob] All connections completed, closing server.")
             all_connections_done.set()

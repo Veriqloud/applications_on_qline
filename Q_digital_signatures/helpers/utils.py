@@ -68,14 +68,7 @@ def calculate_batches(num_qubits):
 
 
 def calculate_num_qubits(n, bH, estimated_qber, confidence=CONFIDENCE):
-    '''
-    #return 3 * n * bH * 2 * 2 
-    tmp = int(3 * (n+1) * bH * 2 * 2 * 1.05)
-    if tmp % 2 == 0: # always return even number of qubits
-        return tmp
-    else:
-        return tmp + 1
-    '''
+
     key_length = 3 * n * bH
     length_after_BR = invert_length(key_length, estimated_qber)
     num_qubits = int(basis_reconciliation_num_qubits(length_after_BR, confidence))
@@ -131,7 +124,7 @@ def estimate_final_key_length(initial_length, measured_qber):
 
 
 def invert_length(target_final_length, qber,
-                   lo=10000, hi=3_000_000, tol=0):
+                   lo=10000, hi=300_000_000, tol=0):
     """
     Finds the smallest initial_length such that l1 (or l2) >= target_final_length,
     for a given measured_qber. Assumes the function is non-decreasing in initial_length.
@@ -171,13 +164,8 @@ def irreducible_polynomial(bH):
         p = galois.Poly(coeffs, field=GF)
 
         if p.is_irreducible():
-            ''' Old code, depends on which represenatation is needed
-            exps = [bH]
-            for i, c in enumerate(coeffs[1:-1], start=1):   # x^(bH-1) down to x^1
-                if c == 1:
-                    exps.append(bH - i)
-            '''
             return np.array(coeffs, dtype=np.uint8) 
+
 
 def coeffs_to_exps(coeffs, bH):
     exps = []
@@ -186,58 +174,6 @@ def coeffs_to_exps(coeffs, bH):
             exps.append(bH - i)
     return exps
 
-''' Old version
-def coeffs_to_exps(coeffs, bH):
-    exps = [bH]
-    for i, c in enumerate(coeffs[1:-1], start=1):
-        if c == 1:
-            exps.append(bH - i)
-    return exps
-
-_POPCOUNT_LUT = np.array([bin(i).count("1") & 1 for i in range(256)], dtype=np.uint8)
-
-def gf2_matvec_popcount(T, vec):
-    T = np.ascontiguousarray(T, dtype=np.uint8)
-    vec = np.ascontiguousarray(vec, dtype=np.uint8)
-
-    Tp = np.packbits(T, axis=1)
-    vp = np.packbits(vec)
-
-    anded = Tp & vp
-    parity_per_byte = _POPCOUNT_LUT[anded]
-    return np.bitwise_xor.reduce(parity_per_byte, axis=1)
-
-
-def toeplitz_prealloc(coeffs, state, bH, bM):
-    exps = coeffs_to_exps(coeffs, bH)
-    lfsr = LFSR(exps, state)
-    T = np.empty((bH, bM), dtype=np.uint8)
-    for j in range(bM):
-        T[:, j] = lfsr.state
-        lfsr.next()
-    return T
-'''
-''' Oldest version
-def Toeplitz(coeffs, state, bH, bM):
-
-    # coeffs = [1, c_{bH-1}, ..., c_1, c_0], degree bH, monic, c_0 must be 1
-    # pylfsr fpoly wants exponents with a 1-coefficient, EXCLUDING the
-    # implicit constant term (x^0), and INCLUDING the top degree bH.
-    exps = [bH]
-    for i, c in enumerate(coeffs[1:-1], start=1):   # x^(bH-1) down to x^1
-        if c == 1:
-            exps.append(bH - i) # e.g. [10, 8, 3] instead of a raw bitmask
-    lfsr = LFSR(exps, state)
-
-    columns = []
-
-    for _ in range(bM):
-        columns.append(lfsr.state)
-        lfsr.next()
-    T = np.column_stack(columns)
-
-    return T
-'''
 
 def toeplitz_raw_numpy(coeffs, state, bH, bM):
     """Same output as toeplitz_prealloc, but steps the LFSR manually
