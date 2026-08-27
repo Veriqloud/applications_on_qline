@@ -36,13 +36,14 @@ class QDSHandlerAlice():
         self.Bob_key = None
         self.Charlie_eMax = args.eMax
 
-        print(self.num_qubits, self.num_batches, self.batch_size)
-        print(len(self.message_bits))
+        print(f"Number of qubits for each key: {self.num_qubits}, num_batches: {self.num_batches}, batch_size: {self.batch_size}")
+        print(f"bM: {len(self.message_bits)}, bH: {self.bH}")
 
         forg_prob = forgery_prob(self.n, len(self.message_bits), self.bH, e_max=self.Charlie_eMax)
         rep_prob = repudiation_prob(self.n, len(self.message_bits), self.bH, bH_prime=args.bH_prime, e_max=self.Charlie_eMax)
         print(forg_prob, rep_prob)
         logging.info(f"[Alice] ɛ-forgery: {forg_prob}, ɛ-repudiation: {rep_prob}")
+        print(f"[Alice] ɛ-forgery: {forg_prob}, ɛ-repudiation: {rep_prob}")
 
         timelog["n"] = self.n
         timelog["bM"] = len(self.message_bits)
@@ -123,12 +124,14 @@ class QDSHandlerAlice():
         logging.info("--------------- [Alice] Sending Signatures to Bob ---------------")
         await assend(writer, {"type": "SIGNATURES", "message": self.message, "signatures": signatures})
         logging.info("[Alice] Signatures sent. Awaiting response.")
+        print("Signatures sent. Awaiting response.")
         response = await asrecv(reader)
         
         writer.close()
         await writer.wait_closed()
 
         logging.info(f"*************** [Alice] Response from Bob: {response} ***************")
+        print(f"Response from Bob: {response}")
 
 
     async def run(self):
@@ -141,22 +144,29 @@ class QDSHandlerAlice():
 
         ### QKD with Charlie ###
         logging.info("=============== [Alice] QKD with Charlie ===============")
+        print("Starting QKD with Charlie")
         await self.run_QKD("Charlie", self.Charlie_host, self.Charlie_port)
         if self.Charlie_key is None:
             logging.info("[Alice][QKD] Alice-Charlie key not established. Protocol Aborted.")
+            print("Alice-Charlie key not established. Protocol Aborted.")
             return
         logging.info(f"[Alice] Alice-Charlie key: {self.Charlie_key[:10]}, length: {len(self.Charlie_key)}")
+        print(f"Alice-Charlie key: {self.Charlie_key[:10]}, length: {len(self.Charlie_key)}")
         
         ### QKD with Bob ###
         logging.info("=============== [Alice] QKD with Bob ===============")
+        print("Starting QKD with Bob")
         await self.run_QKD("Bob", self.Bob_host, self.Bob_port)
         if self.Bob_key is None:
             logging.info("[Alice][QKD] Alice-Bob key not established. Protocol Aborted.")
+            print("Alice-Charlie key not established. Protocol Aborted.")
             return
         logging.info(f"[Alice] Alice-Bob key: {self.Bob_key[:10]}, length: {len(self.Bob_key)}")
+        print(f"Alice-Bob key: {self.Bob_key[:10]}, length: {len(self.Bob_key)}")
 
         ### Sign message and send to Bob ###
         logging.info("=============== [Alice] Message signature ===============")
+        print("Starting Message Signature.")
         await self.sign(self.Bob_host, self.Bob_port)
 
         timelog["t_total"] = time.perf_counter() - t_total
