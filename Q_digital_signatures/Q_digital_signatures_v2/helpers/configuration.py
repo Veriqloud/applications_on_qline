@@ -1,0 +1,2 @@
+E_MAX = 22
+BH_PRIME = 55

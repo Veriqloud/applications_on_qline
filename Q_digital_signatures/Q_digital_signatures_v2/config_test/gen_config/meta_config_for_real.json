@@ -1,0 +1,47 @@
+{
+    "ip": {
+        "alice": "192.168.1.124",
+        "bob": "192.168.1.117",
+        "alice_wrs": "192.168.10.11",
+        "bob_wrs": "192.168.10.12"
+    },
+    "port": {
+        "hw": 13000,
+        "hws": 13001,
+        "mon": 13002,
+        "kms_alice": 13003,
+        "kms_bob": 13004,
+        "gc": 13005,
+        "qber": 13006,
+        "node_alice": 13007,
+        "node_bob": 13008
+    },
+    "file": {
+        "gcr": "/dev/xdma0_c2h_1",
+        "gc": "/dev/xdma0_h2c_0",
+        "angle": "/dev/xdma0_c2h_3",
+        "result": "/tmp/result.fifo",
+        "gcuser": "",
+        "fpgareg": "/dev/xdma0_user",
+        "startstop": "/tmp/gc_startstop",
+        "hw_params": "/home/vq-user/hw_control/config/tmp.txt",
+        "kms": "/tmp/kms.fifo"
+    },
+    "kms": {
+        "alice_peer_id": "QmTsMUaLQZh2PuRCAVRyH4CCSgg23bgoPmVa5mqDT1DL6S",
+        "bob_peer_id": "QmcRZWX5XnVFXDceknYLEu7LaRceU2W2StNAznpg4kafnd",
+        "key_lifetime_ms": 3600000,
+        "default_key_size": 512,
+        "max_key_count": 100000,
+        "authentication": false,
+        "ca_path": "/home/vq-user/authentication/certs/ca.crt",
+        "cert_path": "/home/vq-user/authentication/certs/cert.pem",
+        "key_path": "/home/vq-user/authentication/private/eckey_pkcs8.pem"
+    },
+    "node": {
+        "key_path": "/home/vq-user/authentication/private/node.pk8",
+        "qtol": 0.09,
+        "key_size_per_round": 1000000
+    }
+}
+
