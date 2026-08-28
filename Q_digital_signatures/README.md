@@ -374,17 +374,17 @@ The parameters of both protocols can be optimized numerically for a chosen messa
 
 The optimization searches over:
 
-$n$
-$b_H$
-$b'_H$
-$e_max$
+$$n$$
+$$b_H$$
+$$b'_H$$
+$$e_{max}$$
 
 
 and minimizes one of:
 
-$l_{total}$
-$l_{AliceBob}$
-$l_{BobCharlie}$
+$$l_{total}$$
+$$l_{AliceBob}$$
+$$l_{BobCharlie}$$
 
 
 subject to
@@ -400,8 +400,8 @@ For the parameter sets reported in the paper, the optimized values of $b_H$ incr
 The sequence-based protocol optimizes:
 
 
-$b_H$
-$b'_H$
+$$b_H$$
+$$b'_H$$
 
 
 under the same security requirement.
