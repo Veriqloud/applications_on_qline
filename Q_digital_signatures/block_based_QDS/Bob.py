@@ -215,11 +215,15 @@ class QDSHandlerBob():
                 logging.info(f"*************** Charlie's Response: {response} ***************")
                 print(f"Charlie's Response: {response}")
                 # print(response)
-
-
-
+            
             logging.info("[Bob] All connections completed, closing server.")
             print("[Bob] All connections completed, closing server.")
+            all_connections_done.set()
+                
+        elif request["type"] == "END":
+            
+            logging.info("[Bob] Received command to close server, cause unknown. Closing server.")
+            print("[Bob] eceived command to close server, cause unknown. Closing server.")
             all_connections_done.set()
     
 
