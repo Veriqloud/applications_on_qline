@@ -4,7 +4,7 @@ This repository contains an implementation of two Quantum Digital Signature (QDS
 
 The two implementations are:
 
-* **Block-based QDS** — uses \(n\) blocks of preshared QKD keys and produces \(2n\) signatures for each message.
+* **Block-based QDS** — uses $n$ blocks of preshared QKD keys and produces $2n$ signatures for each message.
 * **Sequence-based QDS** — combines the QKD keys established between Alice-Bob and Alice-Charlie to produce a single signature.
 
 Both protocols use an LFSR-based Toeplitz matrix hash and a one-time pad (OTP) for the signature construction.
@@ -23,15 +23,15 @@ The protocol consists of three parties:
 
 Alice first establishes secret QKD keys with both Bob and Charlie using BB84. These keys are then used to construct the digital signature.
 
-The signature is based on an LFSR-generated Toeplitz matrix. For a message \(Doc\), a secret key is divided into two parts,
+The signature is based on an LFSR-generated Toeplitz matrix. For a message $Doc$, a secret key is divided into two parts,
 
 $$
 X = s \mathbin{||} r,
 $$
 
-where \(s\) is used to construct the Toeplitz hash and \(r\) is used as an OTP.
+where $s$ is used to construct the Toeplitz hash and $r$ is used as an OTP.
 
-Alice generates an irreducible polynomial \(p\), constructs the Toeplitz matrix \(T_{p,s}\), and computes
+Alice generates an irreducible polynomial $p$, constructs the Toeplitz matrix $T_{p,s}$, and computes
 
 $$
 Sig = (T_{p,s} \cdot Doc \mathbin{||} p) \oplus r.
@@ -211,9 +211,9 @@ Do **not** run both QDS protocols simultaneously using the same QLine configurat
 
 # Block-based QDS
 
-The block-based protocol establishes \(n\) blocks of secret key between Alice and Bob and \(n\) blocks between Alice and Charlie.
+The block-based protocol establishes $n$ blocks of secret key between Alice and Bob and $n$ blocks between Alice and Charlie.
 
-Each block has length \(3b_H\):
+Each block has length $3b_H$:
 
 $$
 X^j = s^j \mathbin{||} r^j,
@@ -221,10 +221,10 @@ $$
 
 where:
 
-* \(s^j\) contains \(b_H\) bits and is used to generate the Toeplitz hash;
-* \(r^j\) contains \(2b_H\) bits and is used as an OTP.
+* $s^j$ contains $b_H$ bits and is used to generate the Toeplitz hash;
+* $r^j$ contains $2b_H$ bits and is used as an OTP.
 
-Alice generates \(2n\) signatures, one for each key block.
+Alice generates $2n$ signatures, one for each key block.
 
 Bob receives Alice's document and all signatures. He can directly verify the signatures corresponding to his own key and also receives half of Charlie's key blocks through the key-exchange stage.
 
@@ -238,7 +238,7 @@ signatures.
 
 If Bob accepts, he forwards the signed document to Charlie. Charlie performs the corresponding verification using his own key blocks and the key blocks received from Bob.
 
-Charlie accepts the signature if the number of detected errors is at most \(e_{max}\).
+Charlie accepts the signature if the number of detected errors is at most $e_{max}$.
 
 The security parameters are chosen such that
 
@@ -251,11 +251,11 @@ $$
 
 The required parameters are:
 
-* \(b_M\): message length in bits
-* \(n\): number of signature blocks
-* \(b_H\): hash output / LFSR state length
-* \(b'_H\): authentication hash length
-* \(e_{max}\): maximum number of verification errors accepted by Charlie
+* $b_M$: message length in bits
+* $n$: number of signature blocks
+* $b_H$: hash output / LFSR state length
+* $b'_H$: authentication hash length
+* $e_{max}$: maximum number of verification errors accepted by Charlie
 
 ---
 
@@ -289,7 +289,7 @@ $$
 X=s\mathbin{||}r.
 $$
 
-Alice generates one irreducible polynomial \(p\), constructs the corresponding Toeplitz matrix, and produces
+Alice generates one irreducible polynomial $p$, constructs the corresponding Toeplitz matrix, and produces
 
 $$
 Sig=(T_{p,s}\cdot Doc\mathbin{||}p)\oplus r.
@@ -299,9 +299,9 @@ Alice sends the signed document to Bob.
 
 The order of the subsequent communication is important:
 
-1. Alice sends \(\{Doc,Sig\}\) to Bob.
-2. Bob forwards \(\{Doc,Sig\}\) and his key \(X_B\) to Charlie.
-3. Charlie sends \(X_C\) to Bob.
+1. Alice sends $\{Doc,Sig\}$ to Bob.
+2. Bob forwards $\{Doc,Sig\}$ and his key $X_B$ to Charlie.
+3. Charlie sends $X_C$ to Bob.
 4. Bob and Charlie reconstruct the combined key.
 5. Bob verifies the signature.
 6. Bob sends his verification result to Charlie.
@@ -322,12 +322,12 @@ $$
 \{|+\rangle,|-\rangle,|+i\rangle,|-i\rangle\},
 $$
 
-corresponding to the two possible bit values in the \(X\)- and \(Y\)-bases.
+corresponding to the two possible bit values in the $X$- and $Y$-bases.
 
 The QKD procedure consists of:
 
 1. Alice prepares and sends the qubits.
-2. Bob or Charlie randomly measures each qubit in the \(X\)- or \(Y\)-basis.
+2. Bob or Charlie randomly measures each qubit in the $X$- or $Y$-basis.
 3. Alice and the receiver perform basis reconciliation.
 4. A subset of the resulting key is used to estimate the QBER.
 5. The protocol aborts if the QBER exceeds the tolerated value.
@@ -368,43 +368,41 @@ The current implementation focuses on the QKD and QDS protocol execution; the fu
 
 # Parameter selection
 
-The parameters of both protocols can be optimized numerically for a chosen message length \(b_M\).
+The parameters of both protocols can be optimized numerically for a chosen message length $b_M$.
 
 ## Block-based QDS
 
 The optimization searches over:
 
-```text
-n
-b_H
-b'_H
-e_max
-```
+$n$
+$b_H$
+$b'_H$
+$e_max$
+
 
 and minimizes one of:
 
-```text
-l_total
-l_AliceBob
-l_BobCharlie
-```
+$l_{total}$
+$l_{AliceBob}$
+$l_{BobCharlie}$
+
 
 subject to
 
-```text
-epsilon_rep + epsilon_for < 1e-10
-```
 
-For the parameter sets reported in the paper, the optimized values of \(b_H\) increase approximately logarithmically with message length.
+$$\varepsilon_{rep} + \varepsilon_{for} < 10^{-10}$$
+
+
+For the parameter sets reported in the paper, the optimized values of $b_H$ increase approximately logarithmically with message length.
 
 ## Sequence-based QDS
 
 The sequence-based protocol optimizes:
 
-```text
-b_H
-b'_H
-```
+
+$b_H$
+$b'_H$
+
 
 under the same security requirement.
 
@@ -425,7 +423,7 @@ NumPy 2.4.6
 SciPy 1.18.0
 ```
 
-For the block-based implementation, an \(80,000\)-bit message (approximately 10 kB) required approximately:
+For the block-based implementation, an $80,000$-bit message (approximately 10 kB) required approximately:
 
 ```text
 Alice signing:       21.8 s
@@ -433,7 +431,7 @@ Bob verification:    15.5 s
 Charlie verification: 16.0 s
 ```
 
-For an \(8,000,000\)-bit message (approximately 1 MB), the measured signing and verification times were approximately:
+For an $8,000,000$-bit message (approximately 1 MB), the measured signing and verification times were approximately:
 
 ```text
 Alice signing:       2220 s
@@ -543,9 +541,9 @@ This distinction is important when comparing the implementation against other LF
 
 The optimized parameter sets used for the runtime measurements are given in the paper.
 
-For block-based QDS, the runtime measurements use the parameter sets optimized with \(l_{total}\) as the objective function.
+For block-based QDS, the runtime measurements use the parameter sets optimized with $l_{total}$ as the objective function.
 
-For sequence-based QDS, the runtime measurements similarly use the parameter sets optimized with \(l_{total}\).
+For sequence-based QDS, the runtime measurements similarly use the parameter sets optimized with $l_{total}$.
 
 The implementation can therefore be used to reproduce the runtime measurements and investigate the scaling of:
 
