@@ -374,15 +374,18 @@ The parameters of both protocols can be optimized numerically for a chosen messa
 
 The optimization searches over:
 
-```text
-$n$, $b_H$, $b'_H$, $e_{max}$
-```
+- $n$
+- $b_H$
+- $b'_H$
+- $e_{max}$
+
 
 and minimizes one of:
 
-```text
-$l_{total}$, $l_{AliceBob}$, $l_{BobCharlie}$
-```
+- $l_{total}$
+- $l_{AliceBob}$
+- $l_{BobCharlie}$
+
 
 subject to
 
@@ -396,10 +399,10 @@ For the parameter sets reported in the paper, the optimized values of $b_H$ incr
 
 The sequence-based protocol optimizes:
 
-```text
-$$b_H$$
-$$b'_H$$
-```
+
+- $b_H$
+- $b'_H$
+
 
 under the same security requirement.
 
@@ -595,17 +598,3 @@ by See Min Lim, Chin-Te Liao, Anne Marin, Jean-Sébastien Kersaint Tournebize
 This work was carried out at VeriQloud.
 
 The implementation makes use of the QLine hardware/software stack and associated simulation tools.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
