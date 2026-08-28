@@ -374,17 +374,12 @@ The parameters of both protocols can be optimized numerically for a chosen messa
 
 The optimization searches over:
 
-$$n$$
-$$b_H$$
-$$b'_H$$
-$$e_{max}$$
+$n$, $b_H$, $b'_H$, $e_{max}$
 
 
 and minimizes one of:
 
-$$l_{total}$$
-$$l_{AliceBob}$$
-$$l_{BobCharlie}$$
+$l_{total}$, $l_{AliceBob}$, $l_{BobCharlie}$
 
 
 subject to
