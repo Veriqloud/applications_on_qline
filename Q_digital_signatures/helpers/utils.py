@@ -32,7 +32,7 @@ EPS_SEC2 = 2**(-23) # original
 EPS_COR=2**(-24)
 
 #BATCH_SIZE = 3000
-CONFIDENCE = 0.997
+#CONFIDENCE = 0.997
 
 def repudiation_prob_sequence(bM, bH, bH_prime):
     left_term = (2 * bH + bM)/math.pow(2, bH_prime - 1)
@@ -67,7 +67,7 @@ def text_to_bits(text: str) -> np.ndarray:
     return np.unpackbits(raw_bytes)  # one uint8 (0 or 1) per bit
 
 
-def calculate_num_qubits(n, bH, estimated_qber, batch_size, confidence=CONFIDENCE):
+def calculate_num_qubits(n, bH, estimated_qber, batch_size, confidence):
 
     key_length = 3 * n * bH
     length_after_BR = invert_length(key_length, estimated_qber)
