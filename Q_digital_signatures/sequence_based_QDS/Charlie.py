@@ -85,6 +85,7 @@ class QDSHandlerCharlie:
         timelog["mode"] = self.mode
         self.key = await QKD_Charlie.run_protocol()
         logging.info(f"[Charlie] Alice-Charlie key: {self.key[:10]}, length: {len(self.key)}")
+        print(f"Alice-Charlie key: {self.key[:10]}, length: {len(self.key)}")
 
         writer.close()
         await writer.wait_closed()
@@ -110,7 +111,13 @@ class QDSHandlerCharlie:
         errors = 0
         t_indiv = time.perf_counter()
         if verify(key, self.bH, self.Alice_message_bits, self.Alice_signature) is False:
-            errors += 1
+            self.result = 0
+            logging.info("*************** [Charlie] Verification Failed. ***************")
+            print("Error Detected during Verification. Protocol Aborted.")
+        else:
+            self.result = 1
+            logging.info("*************** [Charlie] Verification Successful. ***************")
+            print("Verification completed without error detected.")
         t_single_verification = time.perf_counter() - t_indiv
         timelog["t_single_verification"] = t_single_verification
 
@@ -118,6 +125,7 @@ class QDSHandlerCharlie:
         timelog["bM"] = len(self.Alice_message_bits)
         
         logging.info(f"[Charlie] Number of errors detected during verification: {errors}")
+
         return errors
 
 
@@ -132,17 +140,11 @@ class QDSHandlerCharlie:
 
             logging.info("=============== [Charlie] Signatures received from Bob.  ===============")
             logging.info("--- Sending Charlie's key sent to Bob. ---")
+            print("Received Bob's key and forwarded signature, sending Charlie's key to Bob.")
             await self.handle_key_transfer(reader, writer, request)
 
             logging.info("--- Charlie's key sent to Bob. Beginning verification. ---")
             errors = self.handle_verification()
-            if errors > 0:
-                self.result = 0
-                logging.info("*************** [Charlie] Verification Failed. ***************")
-                #print("failed")
-            else:
-                self.result = 1
-                logging.info("*************** [Charlie] Verification Successful. ***************")
 
             writer.close()
             await writer.wait_closed()
@@ -155,13 +157,20 @@ class QDSHandlerCharlie:
             await assend(writer, self.result)
             if response == 1:
                 logging.info("*************** [Charlie] Bob's Verification Passed. ***************")
+                print("Bob's Verification Passed.")
             elif response == 0:
                 logging.info("*************** [Charlie] Bob's Verification Failed. ***************")
+                print("Bob's Verification Failed.")
 
             writer.close()
             await writer.wait_closed()
 
             logging.info("[Charlie] All connections completed, closing server.")
+            all_connections_done.set()
+
+        elif request["type"] == "END":
+            logging.info("[Charlie] Received command to close server, cause unknown. Closing server.")
+            print("[Charlie] eceived command to close server, cause unknown. Closing server.")
             all_connections_done.set()
 
 
@@ -174,8 +183,6 @@ if __name__ == "__main__":
                         help="Path to FIFO config file (default: config_test/sim/bob/qds.json)")
     parser.add_argument("-c", "--network_config", type=str, default="config/network.json",
                         help="Path to network config file")
-    #parser.add_argument("-q", "--qber", type=float, default=0.055,
-    #                    help="Quantum bit error rate (default: 0.055)")
     parser.add_argument("-l", "--loglive", action="store_true",
                         help="show log in live")
     
