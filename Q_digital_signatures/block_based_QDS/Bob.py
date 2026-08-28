@@ -16,7 +16,7 @@ all_connections_done = asyncio.Event()
 
 path_config = "config_test/sim/bob/qds.json"
 network_config = "config/network.json"
-timelog_path = "log/timelog_Bob.csv"
+timelog_path = "block_based_QDS/log/timelog_Bob.csv"
 timelog = {}
 
 
@@ -242,7 +242,7 @@ if __name__ == "__main__":
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     timelog["timestamp"] = timestamp
 
-    log_filename = f"log/sim_bob_{timestamp}.log"
+    log_filename = f"block_based_QDS/log/sim_bob_{timestamp}.log"
     # Configure logging
     logging.basicConfig(
         filename=log_filename,
