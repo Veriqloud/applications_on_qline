@@ -457,55 +457,23 @@ The implementations are based on information-theoretically secure primitives, as
 
 For the block-based QDS implementation, the relevant security bounds are
 
-$$
-\varepsilon_{\mathrm{for}}
-=
-\Xi\left(
-\frac{n}{2}-e_{max},
-\frac{n}{2},
-b_M2^{1-b_H}
-\right),
-$$
+$$\varepsilon_{\mathrm{for}} = \Xi\left(\frac{n}{2}-e_{max},\frac{n}{2},b_M2^{1-b_H}\right),$$
 
 and
 
-$$
-\varepsilon_{\mathrm{rep}}
-=
-\max\left\{
-\prod_{i=0}^{e_{max}}
-\frac{n/2-i}{n-i},
-\frac{b_M+4nb_H}{2^{b'_H-1}}
-\right\}.
-$$
+$$\varepsilon_{\mathrm{rep}}=\max\left\{\prod_{i=0}^{e_{max}}\frac{n/2-i}{n-i},\frac{b_M+4nb_H}{2^{b'_H-1}}\right\}.$$
 
 For the sequence-based implementation,
 
-$$
-\varepsilon_{\mathrm{for}}
-=
-\frac{b_M}{2^{b_H-1}},
-$$
+$$\varepsilon_{\mathrm{for}}=\frac{b_M}{2^{b_H-1}},$$
 
 and
 
-$$
-\varepsilon_{\mathrm{rep}}
-=
-\max\left\{
-\frac{2b_H+b_M}{2^{b'_H-1}},
-\frac{3b_H}{2^{b'_H-1}}
-\right\}.
-$$
+$$\varepsilon_{\mathrm{rep}}=\max\left\{\frac{2b_H+b_M}{2^{b'_H-1}},\frac{3b_H}{2^{b'_H-1}}\right\}.$$
 
 The numerical optimization used in this implementation requires
 
-$$
-\varepsilon_{\mathrm{rep}}
-+
-\varepsilon_{\mathrm{for}}
-<10^{-10}.
-$$
+$$\varepsilon_{\mathrm{rep}}+\varepsilon_{\mathrm{for}}<10^{-10}.$$
 
 Note that these bounds concern the QDS protocol. The security and correctness parameters of the underlying QKD implementation are treated separately in the paper.
 
@@ -515,19 +483,11 @@ Note that these bounds concern the QDS protocol. The security and correctness pa
 
 The implementation uses the LFSR convention
 
-$$
-P(x)
-=
-p_{b_H}x^{b_H}
-+\cdots+
-p_1x+1,
-$$
+$$P(x)=p_{b_H}x^{b_H}+\cdots+p_1x+1,$$
 
 with
 
-$$
-P=(p_1,\ldots,p_{b_H}).
-$$
+$$P=(p_1,\ldots,p_{b_H}).$$
 
 This differs in notation from the original QDS paper, which writes the polynomial coefficients in the opposite order.
 
