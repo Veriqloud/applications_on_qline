@@ -27,7 +27,7 @@ class QDSHandlerAlice():
         timelog["id"] = self.id
         
         self.bH = args.bH
-        self.num_qubits, self.num_batches, self.batch_size = calculate_num_qubits(n=1, bH=self.bH, batch_size=args.batch_size, estimated_qber=args.qber)
+        self.num_qubits, self.num_batches, self.batch_size = calculate_num_qubits(n=1, bH=self.bH, batch_size=args.batch_size, estimated_qber=args.qber, confidence=args.confidence)
         self.message = "1" * 100  #"hello world!"
         self.message_bits = text_to_bits(self.message)
         self.mode = args.mode
@@ -143,7 +143,19 @@ class QDSHandlerAlice():
             print("Alice-Charlie key not established. Protocol Aborted.")
             return
         logging.info(f"[Alice] Alice-Charlie key: {self.Charlie_key[:10]}, length: {len(self.Charlie_key)}")
-        print( f"Alice-Charlie key: {self.Charlie_key[:10]}, " f"length: {len(self.Charlie_key)}" )
+        print( f"Alice-Charlie key: {self.Charlie_key[:10]}, length: {len(self.Charlie_key)}" )
+
+        if len(self.Charlie_key) < 3 * self.bH:
+            logging.error(f"Key Length insufficient with confidence {self.confidence}. Aborting protocol, please rerun.")
+            print(f"Key Length insufficient with confidence {self.confidence}. Aborting protocol, please rerun.")
+
+            # Notify both parties
+            await asyncio.gather(
+                self.send_END("Charlie", self.Charlie_host, self.Charlie_port),
+                self.send_END("Bob", self.Bob_host, self.Bob_port)
+            )
+
+            return
 
         ### QKD with Bob ###
         logging.info("=============== [Alice] QKD with Bob ===============")
@@ -155,7 +167,19 @@ class QDSHandlerAlice():
             print("Alice-Bob key not established. Protocol Aborted.")
             return
         logging.info(f"[Alice] Alice-Bob key: {self.Bob_key[:10]}, length: {len(self.Bob_key)}")
-        print( f"Alice-Bob key: {self.Bob_key[:10]}, " f"length: {len(self.Bob_key)}" )
+        print(f"Alice-Bob key: {self.Bob_key[:10]}, length: {len(self.Bob_key)}")
+
+        if len(self.Bob_key) < 3 * self.bH:
+            logging.error(f"Key Length insufficient with confidence {self.confidence}. Aborting protocol, please rerun.")
+            print(f"Key Length insufficient with confidence {self.confidence}. Aborting protocol, please rerun.")
+
+            # Notify both parties
+            await asyncio.gather(
+                self.send_END("Charlie", self.Charlie_host, self.Charlie_port),
+                self.send_END("Bob", self.Bob_host, self.Bob_port)
+            )
+
+            return
 
         ### Sign message and send to Bob ###
         logging.info("=============== [Alice] Message signature ===============")
@@ -179,11 +203,13 @@ if __name__ == "__main__":
                         help="Path to FIFO config file (default: config_test/sim/alice/qds.json)")
     parser.add_argument("-s", "--batch_size", type=int, default=3000,
                         help="batch size when reading qubits (default: 3000)")
+    parser.add_argument("-c", "--confidence", type=int, default=0.997,
+                        help="level of confidence for attaining sufficient qubits after basis reconciliation (default: 0.997)")
     parser.add_argument("-bH", "--bH", type=int, default=33,
                         help="bH as defined in the paper (default: 10)")
     parser.add_argument("-bH_p", "--bH_prime", type=int, default=21,
                             help="bH_prime as defined in the paper (default: 10)")
-    parser.add_argument("-c", "--config_network", type=str, default="config/network.json",
+    parser.add_argument("-cn", "--config_network", type=str, default="config/network.json",
                         help="Path to network config file")
     parser.add_argument("-q", "--qber", type=float, default=0.08,
                         help="Estimated quantum bit error rate (default: 0.08)")

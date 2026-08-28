@@ -29,13 +29,14 @@ class QDSHandlerAlice():
         self.n = args.num_blocks
         self.bH = args.bH
         self.batch_size = args
-        self.num_qubits, self.num_batches, self.batch_size = calculate_num_qubits(n=self.n, bH=self.bH, batch_size=args.batch_size, estimated_qber=args.qber)
+        self.num_qubits, self.num_batches, self.batch_size = calculate_num_qubits(n=self.n, bH=self.bH, batch_size=args.batch_size, estimated_qber=args.qber, confidence=args.confidence)
         self.message = "1" * 1_0  #"hello world!"
         self.message_bits = text_to_bits(self.message)
         self.mode = args.mode
         self.Charlie_key = None
         self.Bob_key = None
         self.Charlie_eMax = args.eMax
+        self.confidence = args.confidence
 
 
         print(f"Number of qubits for each key: {self.num_qubits}, num_batches: {self.num_batches}, batch_size: {self.batch_size}")
@@ -117,7 +118,7 @@ class QDSHandlerAlice():
         logging.info(f"[Alice] Combining Alice-Bob and Alice-Charlie keys to form {self.n * 2} blocks of {3 * self.bH} bits.")
         Alice_key = [self.Bob_key[i * (3 * self.bH): (i+1) * (3 * self.bH)] for i in range(self.n)] + [self.Charlie_key[i * (3 * self.bH): (i+1) * (3 * self.bH)] for i in range(self.n)]
         logging.debug(f"Number of blocks formed: {len(Alice_key)}")
-        logging.debug(f"Alice-Bob key length: {len(self.Bob_key)}, Alice-Charlie key length: {len(self.Charlie_key)}, required total length: {2 * 3 * self.n * self.bH}")
+        logging.debug(f"Alice-Bob key length: {len(self.Bob_key)}, Alice-Charlie key length: {len(self.Charlie_key)}, required length for each key: {3 * self.n * self.bH}")
 
         logging.info("--------------- [Alice] Beginning signatures of message ---------------")
         signatures = []
@@ -133,7 +134,6 @@ class QDSHandlerAlice():
         timelog["t_signatures_total"] = time.perf_counter() - t
         
         logging.info("--------------- [Alice] Sending Signatures to Bob ---------------")
-        print("--------------- [Alice] Sending Signatures to Bob ---------------")
         await assend(writer, {"type": "SIGNATURES", "message": self.message, "signatures": signatures})
         logging.info("[Alice] Signatures sent. Awaiting response.")
         print("Signatures sent. Awaiting response.")
@@ -191,6 +191,18 @@ class QDSHandlerAlice():
             return
         logging.info(f"[Alice] Alice-Charlie key: {self.Charlie_key[:10]}, length: {len(self.Charlie_key)}")
         print(f"Alice-Charlie key: {self.Charlie_key[:10]}, length: {len(self.Charlie_key)}")
+
+        if len(self.Charlie_key) < 3 * self.n * self.bH:
+            logging.error(f"Key Length insufficient with confidence {self.confidence}. Aborting protocol, please rerun.")
+            print(f"Key Length insufficient with confidence {self.confidence}. Aborting protocol, please rerun.")
+
+            # Notify both parties
+            await asyncio.gather(
+                self.send_END("Charlie", self.Charlie_host, self.Charlie_port),
+                self.send_END("Bob", self.Bob_host, self.Bob_port)
+            )
+
+            return
         
         ### QKD with Bob ###
         logging.info("=============== [Alice] QKD with Bob ===============")
@@ -202,6 +214,18 @@ class QDSHandlerAlice():
             return
         logging.info(f"[Alice] Alice-Bob key: {self.Bob_key[:10]}, length: {len(self.Bob_key)}")
         print(f"Alice-Bob key: {self.Bob_key[:10]}, length: {len(self.Bob_key)}")
+
+        if len(self.Bob_key) < 3 * self.n * self.bH:
+            logging.error(f"Key Length insufficient with confidence {self.confidence}. Aborting protocol, please rerun.")
+            print(f"Key Length insufficient with confidence {self.confidence}. Aborting protocol, please rerun.")
+
+            # Notify both parties
+            await asyncio.gather(
+                self.send_END("Charlie", self.Charlie_host, self.Charlie_port),
+                self.send_END("Bob", self.Bob_host, self.Bob_port)
+            )
+
+            return
 
         ### Sign message and send to Bob ###
         logging.info("=============== [Alice] Message signature ===============")
@@ -225,6 +249,8 @@ if __name__ == "__main__":
                         help="Path to FIFO config file (default: config_test/sim/alice/qds.json)")
     parser.add_argument("-s", "--batch_size", type=int, default=3000,
                         help="batch size when reading qubits (default: 3000)")
+    parser.add_argument("-c", "--confidence", type=int, default=0.997,
+                        help="level of confidence for attaining sufficient qubits after basis reconciliation (default: 0.997)")
     parser.add_argument("-n", "--num_blocks", type=int, default=52,
                         help="Number of blocks (default: 10)")
     parser.add_argument("-bH", "--bH", type=int, default=33,
@@ -233,7 +259,7 @@ if __name__ == "__main__":
                             help="bH_prime as defined in the paper (default: 10)")
     parser.add_argument("-e", "--eMax", type=int, default=21,
                         help="Charlie's error tolerance (between 0 and n/2)")
-    parser.add_argument("-c", "--config_network", type=str, default="config/network.json",
+    parser.add_argument("-cn", "--config_network", type=str, default="config/network.json",
                         help="Path to network config file")
     parser.add_argument("-q", "--qber", type=float, default=0.08,
                         help="Estimated quantum bit error rate (default: 0.08)")
