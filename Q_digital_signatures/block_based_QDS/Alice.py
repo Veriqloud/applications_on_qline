@@ -4,7 +4,7 @@ from helpers.async_communication import asrecv, assend
 from helpers.qkd import QKDHandlerAlice
 from helpers.start_stop import send_start_command
 import argparse
-from helpers.utils import sign, calculate_num_qubits, text_to_bits, forgery_prob, repudiation_prob
+from helpers.utils import sign, calculate_num_qubits, text_to_bits, forgery_prob_block, repudiation_prob_block
 import numpy as np
 from datetime import datetime
 import json
@@ -29,7 +29,7 @@ class QDSHandlerAlice():
         self.n = args.num_blocks
         self.bH = args.bH
         self.batch_size = args
-        self.num_qubits, self.num_batches, self.batch_size = calculate_num_qubits(self.n, self.bH, 0.08)
+        self.num_qubits, self.num_batches, self.batch_size = calculate_num_qubits(n=self.n, bH=self.bH, batch_size=args.batch_size, estimated_qber=args.qber)
         self.message = "1" * 1_0  #"hello world!"
         self.message_bits = text_to_bits(self.message)
         self.mode = args.mode
@@ -39,7 +39,7 @@ class QDSHandlerAlice():
 
 
         print(f"Number of qubits for each key: {self.num_qubits}, num_batches: {self.num_batches}, batch_size: {self.batch_size}")
-        print(f"bM: {len(self.message_bits)}, bH: {self.bH}")
+        print(f"bM: {len(self.message_bits)}, n: {self.n}, bH: {self.bH}, e_max = {self.Charlie_eMax}")
 
 
         timelog["n"] = self.n
@@ -133,6 +133,7 @@ class QDSHandlerAlice():
         timelog["t_signatures_total"] = time.perf_counter() - t
         
         logging.info("--------------- [Alice] Sending Signatures to Bob ---------------")
+        print("--------------- [Alice] Sending Signatures to Bob ---------------")
         await assend(writer, {"type": "SIGNATURES", "message": self.message, "signatures": signatures})
         logging.info("[Alice] Signatures sent. Awaiting response.")
         print("Signatures sent. Awaiting response.")
@@ -172,8 +173,8 @@ class QDSHandlerAlice():
 
             return
 
-        forg_prob = forgery_prob(self.n, len(self.message_bits), self.bH, e_max=self.Charlie_eMax)
-        rep_prob = repudiation_prob(self.n, len(self.message_bits), self.bH, bH_prime=args.bH_prime, e_max=self.Charlie_eMax)
+        forg_prob = forgery_prob_block(self.n, len(self.message_bits), self.bH, e_max=self.Charlie_eMax)
+        rep_prob = repudiation_prob_block(self.n, len(self.message_bits), self.bH, bH_prime=args.bH_prime, e_max=self.Charlie_eMax)
         print(forg_prob, rep_prob)
         logging.info(f"[Alice] ɛ-forgery: {forg_prob}, ɛ-repudiation: {rep_prob}")
         print(f"[Alice] ɛ-forgery: {forg_prob}, ɛ-repudiation: {rep_prob}")
@@ -197,7 +198,7 @@ class QDSHandlerAlice():
         await self.run_QKD("Bob", self.Bob_host, self.Bob_port)
         if self.Bob_key is None:
             logging.info("[Alice][QKD] Alice-Bob key not established. Protocol Aborted.")
-            print("Alice-Charlie key not established. Protocol Aborted.")
+            print("Alice-Bob key not established. Protocol Aborted.")
             return
         logging.info(f"[Alice] Alice-Bob key: {self.Bob_key[:10]}, length: {len(self.Bob_key)}")
         print(f"Alice-Bob key: {self.Bob_key[:10]}, length: {len(self.Bob_key)}")
@@ -234,8 +235,8 @@ if __name__ == "__main__":
                         help="Charlie's error tolerance (between 0 and n/2)")
     parser.add_argument("-c", "--config_network", type=str, default="config/network.json",
                         help="Path to network config file")
-    #parser.add_argument("-q", "--qber", type=float, default=0.055,
-    #                    help="Quantum bit error rate (default: 0.055)")
+    parser.add_argument("-q", "--qber", type=float, default=0.08,
+                        help="Estimated quantum bit error rate (default: 0.08)")
     parser.add_argument("-l", "--loglive", action="store_true",
                         help="show log in live")
     

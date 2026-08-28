@@ -198,10 +198,6 @@ if __name__ == "__main__":
                         help="Path to FIFO config file (default: config_test/sim/bob/qds.json)")
     parser.add_argument("-c", "--network_config", type=str, default="config/network.json",
                         help="Path to network config file")
-    #parser.add_argument("-e", "--eMax", type=str, default=21,
-    #                    help="Charlie's error tolerance")
-    #parser.add_argument("-q", "--qber", type=float, default=0.055,
-    #                    help="Quantum bit error rate (default: 0.055)")
     parser.add_argument("-l", "--loglive", action="store_true",
                         help="show log in live")
     

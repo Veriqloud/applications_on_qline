@@ -59,7 +59,7 @@ class QDSHandlerBob():
             self.Bob_host, self.Bob_port
         )
         logging.info("=============== [Bob] Server started. Waiting for Connections. ===============")
-
+        print("Server started. Waiting for Connections.")
         
         async with server: 
             await all_connections_done.wait()
@@ -85,6 +85,7 @@ class QDSHandlerBob():
         timelog["mode"] = self.mode
         self.key = await QKD_Bob.run_protocol()
         logging.info(f"[Bob] Alice-Bob key: {self.key[:10]}, length: {len(self.key)}")
+        print(f"Alice-Bob key: {self.key[:10]}, length: {len(self.key)}")
 
         
         writer.close()
@@ -97,24 +98,28 @@ class QDSHandlerBob():
         self.Alice_message = request["message"]
         self.Alice_message_bits = text_to_bits(self.Alice_message)
         self.Alice_signature = request["signature"]
+        logging.info("[Bob] Forwarding Signatures and Bob's key to Charlie, waiting for Charlie's key.")
+        print("Forwarding Signatures and Bob's key to Charlie, waiting for Charlie's key. ")
         Charlie_request = {"type": "FORWARDING", "message": self.Alice_message, "signature": self.Alice_signature, "Bob_key": self.key}
         self.Charlie_key = await self.handle_forwarding(Charlie_request)
         key = self.key[:3 * self.bH] ^ self.Charlie_key[:3 * self.bH]
         
 
-        logging.info(f"[Bob] Combined Alice-Bob key blocks and received Alice-Charlie key blocks to form {len(key)} blocks")
+        #logging.info(f"[Bob] Combined Alice-Bob key blocks and received Alice-Charlie key blocks to form {len(key)} blocks")
         
         logging.info("--------------- [Bob] Beginning Verification. ---------------")
         t_indiv = time.perf_counter()
         if verify(key, self.bH, self.Alice_message_bits, self.Alice_signature) is False:
             logging.info("[Bob] Error Detected during Verification. Protocol Aborted.")
+            print("Error Detected during Verification. Protocol Aborted.")
             return False
         t_single_verification = time.perf_counter() - t_indiv
 
         timelog["t_single_verification"] = t_single_verification
         timelog["t_verifications_total"] = time.perf_counter() - t
         timelog["bM"] = len(self.Alice_message_bits)
-        logging.info("[Bob] Verification completed without errors detected.")
+        logging.info("[Bob] Verification completed without error detected.")
+        print("Verification completed without error detected.")
         return True
 
 
@@ -140,15 +145,17 @@ class QDSHandlerBob():
 
         if request["type"] == "QKD":
             logging.info("=============== [Bob] QKD with Alice ===============")
+            print("Starting QKD with Alice.")
             await self.handle_QKD(reader, writer, request)
         
         elif request["type"] == "SIGNATURES":
             logging.info("=============== [Bob] Signatures received from Alice. Beginning verification. ===============")
+            print("Signatures received from Alice. Beginning verification.")
             verification = await self.handle_verification(request)
             if verification == False:
-                logging.info("*************** [Bob] Verification Failed. Transmitting response to Alice. Signatures not forwarded to Charlie. ***************")
+                logging.info("*************** [Bob] Verification Failed. Transmitting response to Alice and Charlie. ***************")
+                print("Verification Failed. Transmitting response to Alice and Charlie.")
                 await assend(writer, "Verification Failed.")
-                # consider adding a forward to Charlie for Charlie to close server?
                 writer.close()
                 await writer.wait_closed()
 
@@ -156,8 +163,9 @@ class QDSHandlerBob():
                 #response = await self.handle_forwarding({"type": "RESULT", "response": "Verification Failed."})
                 response = await self.handle_forwarding({"type": "RESULT", "response": 0})
             else:
-                logging.info("*************** [Bob] Verification Successful. Transmitting response to Alice. ***************")
-                await assend(writer, "Verification Successful, forwarding message to Charlie")
+                logging.info("*************** [Bob] Verification Successful. Transmitting response to Alice and Charlie. ***************")
+                print("Verification Successful. Transmitting response to Alice and Charlie.")
+                await assend(writer, "Verification Successful.")
                 writer.close()
                 await writer.wait_closed()
                 logging.info("---------- [Bob] Forwarding Result to Charlie. Awaiting Response. ----------")
@@ -169,10 +177,16 @@ class QDSHandlerBob():
                 response = "Verification Successful."
 
             logging.info(f"*************** [Bob] Charlie's Response: {response} ***************")
+            print(f"Charlie's Response: {response}")
 
 
 
             logging.info("[Bob] All connections completed, closing server.")
+            all_connections_done.set()
+
+        elif request["type"] == "END":
+            logging.info("[Bob] Received command to close server, cause unknown. Closing server.")
+            print("[Bob] eceived command to close server, cause unknown. Closing server.")
             all_connections_done.set()
     
 
@@ -185,8 +199,6 @@ if __name__ == "__main__":
                         help="Path to FIFO config file (default: config_test/sim/bob/qds.json)")
     parser.add_argument("-c", "--network_config", type=str, default="config/network.json",
                         help="Path to network config file")
-    #parser.add_argument("-q", "--qber", type=float, default=0.055,
-    #                    help="Quantum bit error rate (default: 0.055)")
     parser.add_argument("-l", "--loglive", action="store_true",
                         help="show log in live")
     

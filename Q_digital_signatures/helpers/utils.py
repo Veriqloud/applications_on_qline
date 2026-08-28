@@ -31,19 +31,19 @@ EPS_SEC1 = 2**(-23) # original
 EPS_SEC2 = 2**(-23) # original
 EPS_COR=2**(-24)
 
-BATCH_SIZE = 3000
+#BATCH_SIZE = 3000
 CONFIDENCE = 0.997
 
-def repudiation_prob_P1(bM, bH, bH_prime):
+def repudiation_prob_sequence(bM, bH, bH_prime):
     left_term = (2 * bH + bM)/math.pow(2, bH_prime - 1)
     right_term = (3 * bH)/math.pow(2, bH_prime - 1)
 
     return max(left_term, right_term)
 
-def forgery_prob_P1(bM, bH):
+def forgery_prob_sequence(bM, bH):
     return bM/(math.pow(2, bH - 1))
 
-def repudiation_prob(n, bM, bH, bH_prime, e_max):
+def repudiation_prob_block(n, bM, bH, bH_prime, e_max):
     right_term = (bM + 4 * n * bH)/math.pow(2, bH_prime - 1)
     left_term = 1
     for i in range(e_max):
@@ -52,7 +52,7 @@ def repudiation_prob(n, bM, bH, bH_prime, e_max):
     #print(left_term, right_term)
     return max(left_term, right_term)
 
-def forgery_prob(n, bM, bH, e_max):
+def forgery_prob_block(n, bM, bH, e_max):
     a = n//2 - e_max
     b = n//2
     c = bM * math.pow(2, 1 - bH)
@@ -66,20 +66,13 @@ def text_to_bits(text: str) -> np.ndarray:
     raw_bytes = np.frombuffer(text.encode('utf-8'), dtype=np.uint8)
     return np.unpackbits(raw_bytes)  # one uint8 (0 or 1) per bit
 
-def calculate_batches(num_qubits):
-    num_batches = num_qubits // BATCH_SIZE
-    if num_qubits % BATCH_SIZE > 0:
-        num_batches += 1
 
-    return num_batches, BATCH_SIZE 
-
-
-def calculate_num_qubits(n, bH, estimated_qber, confidence=CONFIDENCE):
+def calculate_num_qubits(n, bH, estimated_qber, batch_size, confidence=CONFIDENCE):
 
     key_length = 3 * n * bH
     length_after_BR = invert_length(key_length, estimated_qber)
     num_qubits = int(basis_reconciliation_num_qubits(length_after_BR, confidence))
-    batch_size = BATCH_SIZE #
+    #batch_size = BATCH_SIZE #
     #num_qubits = 1200000
     num_batches = (num_qubits//batch_size)//2
     if num_batches * 2 * batch_size < num_qubits:

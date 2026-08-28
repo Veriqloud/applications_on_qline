@@ -4,7 +4,7 @@ from helpers.async_communication import asrecv, assend
 from helpers.qkd import QKDHandlerAlice
 from helpers.start_stop import send_start_command
 import argparse
-from helpers.utils import sign, calculate_num_qubits, text_to_bits, forgery_prob_P1, repudiation_prob_P1
+from helpers.utils import sign, calculate_num_qubits, text_to_bits, forgery_prob_sequence, repudiation_prob_sequence
 import numpy as np
 from datetime import datetime
 import json
@@ -27,21 +27,21 @@ class QDSHandlerAlice():
         timelog["id"] = self.id
         
         self.bH = args.bH
-        self.num_qubits, self.num_batches, self.batch_size = calculate_num_qubits(n=1, bH=self.bH, estimated_qber=0.08)
+        self.num_qubits, self.num_batches, self.batch_size = calculate_num_qubits(n=1, bH=self.bH, batch_size=args.batch_size, estimated_qber=args.qber)
         self.message = "1" * 100  #"hello world!"
         self.message_bits = text_to_bits(self.message)
         self.mode = args.mode
         self.Charlie_key = None
         self.Bob_key = None
 
-        print(self.num_qubits, self.num_batches, self.batch_size)
-        print(self.bH)
-        print(len(self.message_bits))
+        print(f"Number of qubits for each key: {self.num_qubits}, num_batches: {self.num_batches}, batch_size: {self.batch_size}")
+        print(f"bM: {len(self.message_bits)}, bH: {self.bH}")
 
-        forg_prob = forgery_prob_P1(len(self.message_bits), self.bH)
-        rep_prob = repudiation_prob_P1(len(self.message_bits), self.bH, bH_prime=args.bH_prime)
+        forg_prob = forgery_prob_sequence(len(self.message_bits), self.bH)
+        rep_prob = repudiation_prob_sequence(len(self.message_bits), self.bH, bH_prime=args.bH_prime)
         #print(forg_prob, rep_prob)
         logging.info(f"[Alice] ɛ-forgery: {forg_prob}, ɛ-repudiation: {rep_prob}")
+        print(f"[Alice] ɛ-forgery: {forg_prob}, ɛ-repudiation: {rep_prob}")
 
         timelog["bM"] = len(self.message_bits)
         timelog["bH"] = self.bH
@@ -99,6 +99,7 @@ class QDSHandlerAlice():
         logging.info("--------------- [Alice] Processing Alice's keys ---------------")
 
         logging.info(f"[Alice] Combining Alice-Bob and Alice-Charlie keys to form {3 * self.bH} bits.")
+        print( f"Combining Alice-Bob and Alice-Charlie keys " f"to form {3 * self.bH} bits." )
         Alice_key = self.Bob_key[:3 * self.bH] ^ self.Charlie_key[:3 * self.bH]
         logging.debug(f"key length: {len(Alice_key)}")
         logging.debug(f"Alice-Bob key length: {len(self.Bob_key)}, Alice-Charlie key length: {len(self.Charlie_key)}, required total length: {3 * self.bH}")
@@ -109,19 +110,21 @@ class QDSHandlerAlice():
         t_single_signature = time.perf_counter() - t_indiv
         timelog["t_single_signature"] = t_single_signature
         logging.info("[Alice] Signatures completed.")
+        print("Signatures completed.")
 
         timelog["t_signatures_total"] = time.perf_counter() - t
         
         logging.info("--------------- [Alice] Sending Signatures to Bob ---------------")
         await assend(writer, {"type": "SIGNATURES", "message": self.message, "signature": signature})
         logging.info("[Alice] Signatures sent. Awaiting response.")
+        print("Signatures sent. Awaiting response.")
         response = await asrecv(reader)
         
         writer.close()
         await writer.wait_closed()
 
         logging.info(f"*************** [Alice] Response from Bob: {response} ***************")
-
+        print(f"Response from Bob: {response}")
 
     async def run(self):
         t_total = time.perf_counter()
@@ -133,22 +136,30 @@ class QDSHandlerAlice():
 
         ### QKD with Charlie ###
         logging.info("=============== [Alice] QKD with Charlie ===============")
+        print("Starting QKD with Charlie")
         await self.run_QKD("Charlie", self.Charlie_host, self.Charlie_port)
         if self.Charlie_key is None:
             logging.info("[Alice][QKD] Alice-Charlie key not established. Protocol Aborted.")
+            print("Alice-Charlie key not established. Protocol Aborted.")
             return
         logging.info(f"[Alice] Alice-Charlie key: {self.Charlie_key[:10]}, length: {len(self.Charlie_key)}")
-        
+        print( f"Alice-Charlie key: {self.Charlie_key[:10]}, " f"length: {len(self.Charlie_key)}" )
+
         ### QKD with Bob ###
         logging.info("=============== [Alice] QKD with Bob ===============")
+        print("Starting QKD with Bob")
+
         await self.run_QKD("Bob", self.Bob_host, self.Bob_port)
         if self.Bob_key is None:
             logging.info("[Alice][QKD] Alice-Bob key not established. Protocol Aborted.")
+            print("Alice-Bob key not established. Protocol Aborted.")
             return
         logging.info(f"[Alice] Alice-Bob key: {self.Bob_key[:10]}, length: {len(self.Bob_key)}")
+        print( f"Alice-Bob key: {self.Bob_key[:10]}, " f"length: {len(self.Bob_key)}" )
 
         ### Sign message and send to Bob ###
         logging.info("=============== [Alice] Message signature ===============")
+        print("Starting Message Signature.")
         await self.sign(self.Bob_host, self.Bob_port)
 
         timelog["t_total"] = time.perf_counter() - t_total
@@ -166,14 +177,16 @@ if __name__ == "__main__":
                         help="Operation mode: 'hwsim', or 'real'")
     parser.add_argument("-p", "--path_config", type=str, default="config_test/sim/alice/qds.json",
                         help="Path to FIFO config file (default: config_test/sim/alice/qds.json)")
+    parser.add_argument("-s", "--batch_size", type=int, default=3000,
+                        help="batch size when reading qubits (default: 3000)")
     parser.add_argument("-bH", "--bH", type=int, default=33,
                         help="bH as defined in the paper (default: 10)")
     parser.add_argument("-bH_p", "--bH_prime", type=int, default=21,
                             help="bH_prime as defined in the paper (default: 10)")
     parser.add_argument("-c", "--config_network", type=str, default="config/network.json",
                         help="Path to network config file")
-    #parser.add_argument("-q", "--qber", type=float, default=0.055,
-    #                    help="Quantum bit error rate (default: 0.055)")
+    parser.add_argument("-q", "--qber", type=float, default=0.08,
+                        help="Estimated quantum bit error rate (default: 0.08)")
     parser.add_argument("-l", "--loglive", action="store_true",
                         help="show log in live")
     
