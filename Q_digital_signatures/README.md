@@ -36,16 +36,24 @@ graph LR
 
 For example, arrange the config files in *kiwi_hw_control/config/sim*, then run the executables generated above in 4 terminals:
 ```
+
+
+# Set-up: run in the veriqloud folder (which has hw_sim, kiwi_hw_control and applications_on_qline in it), in separate terminals for each
 hw_sim/target/release/simulator -c applications_on_qline/Q_digital_signatures/config_test/sim/bob/sim.json
 hw_sim/target/release/simulator -c applications_on_qline/Q_digital_signatures/config_test/sim/alice/sim.json 
-
 kiwi_hw_control/gc/target/release/gc_bob -c applications_on_qline/Q_digital_signatures/config_test/sim/bob/gc.json
 kiwi_hw_control/gc/target/release/gc_alice -c applications_on_qline/Q_digital_signatures/config_test/sim/alice/gc.json
 
-python3 Charlie.py
-python3 Bob.py
-python3 Alice.py
 
+# block-based QDS: run in the Q_digital_signatures folder, in separate terminals for each
+python3 -m block_based_QDS.Charlie
+python3 -m block_based_QDS.Bob
+python3 -m block_based_QDS.Alice
+
+# sequence-based QDS: run in the Q_digital_signatures folder, in separate terminals for each
+python3 -m sequence_based_QDS.Charlie
+python3 -m sequence_based_QDS.Bob
+python3 -m sequence_based_QDS.Alice
 ```
 
 - Run the protocol program on another 2 terminals:

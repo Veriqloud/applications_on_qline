@@ -34,14 +34,6 @@ EPS_COR=2**(-24)
 BATCH_SIZE = 3000
 CONFIDENCE = 0.997
 
-def repudiation_prob_P1(bM, bH, bH_prime):
-    left_term = (2 * bH + bM)/math.pow(2, bH_prime - 1)
-    right_term = (3 * bH)/math.pow(2, bH_prime - 1)
-
-    return max(left_term, right_term)
-
-def forgery_prob_P1(bM, bH):
-    return bM/(math.pow(2, bH - 1))
 
 def repudiation_prob(n, bM, bH, bH_prime, e_max):
     right_term = (bM + 4 * n * bH)/math.pow(2, bH_prime - 1)
