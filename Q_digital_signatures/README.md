@@ -354,19 +354,11 @@ For the block-based protocol, Bob and Charlie require an authenticated channel t
 
 The total preshared-bit requirement for the block-based protocol is
 
-$$
-l_{\mathrm{total}}
-=
-9nb_H+n\log_2 n+5b'_H.
-$$
+$$l_{\mathrm{total}} = 9nb_H+n\log_2 n+5b'_H.$$
 
 For the sequence-based protocol,
 
-$$
-l_{\mathrm{total}}
-=
-6b_H+5b'_H.
-$$
+$$l_{\mathrm{total}} = 6b_H+5b'_H.$$
 
 These quantities include the secret key material required by the QDS protocol and the authenticated Bob-Charlie communication considered in the paper.
 
@@ -599,12 +591,12 @@ For further details on the protocol construction, security analysis, parameter o
 
 **“Practical Implementation of Quantum Digital Signatures on BB84-based Hardware”**
 
-by See Min Lim.
+by See Min Lim, Chin-Te Liao, Anne Marin, Jean-Sébastien Kersaint Tournebize
 
 ---
 
 # Acknowledgements
 
-This work was carried out at VeriQloud in collaboration with École Polytechnique and the National University of Singapore.
+This work was carried out at VeriQloud.
 
 The implementation makes use of the QLine hardware/software stack and associated simulation tools.
