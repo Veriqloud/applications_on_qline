@@ -370,6 +370,13 @@ The current implementation focuses on the QKD and QDS protocol execution; the fu
 
 The parameters of both protocols can be optimized numerically for a chosen message length $b_M$.
 
+In either the `block_based_QDS` or `sequence_based_QDS` folder, run
+
+```bash
+python3 find_optimal_params.py -bM <b_M>
+```
+you can optionally specify the objective function to optimize over with the `-f` flag, with options amongst `l_total`, `l_AliceBob` and `l_BobCharlie`.
+
 ## Block-based QDS
 
 The optimization searches over:
