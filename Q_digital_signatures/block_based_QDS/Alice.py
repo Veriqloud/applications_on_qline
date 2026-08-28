@@ -28,6 +28,7 @@ class QDSHandlerAlice():
         
         self.n = args.num_blocks
         self.bH = args.bH
+        self.batch_size = args
         self.num_qubits, self.num_batches, self.batch_size = calculate_num_qubits(self.n, self.bH, 0.08)
         self.message = "1" * 1_0  #"hello world!"
         self.message_bits = text_to_bits(self.message)
@@ -36,22 +37,16 @@ class QDSHandlerAlice():
         self.Bob_key = None
         self.Charlie_eMax = args.eMax
 
+
         print(f"Number of qubits for each key: {self.num_qubits}, num_batches: {self.num_batches}, batch_size: {self.batch_size}")
         print(f"bM: {len(self.message_bits)}, bH: {self.bH}")
 
-        forg_prob = forgery_prob(self.n, len(self.message_bits), self.bH, e_max=self.Charlie_eMax)
-        rep_prob = repudiation_prob(self.n, len(self.message_bits), self.bH, bH_prime=args.bH_prime, e_max=self.Charlie_eMax)
-        print(forg_prob, rep_prob)
-        logging.info(f"[Alice] ɛ-forgery: {forg_prob}, ɛ-repudiation: {rep_prob}")
-        print(f"[Alice] ɛ-forgery: {forg_prob}, ɛ-repudiation: {rep_prob}")
 
         timelog["n"] = self.n
         timelog["bM"] = len(self.message_bits)
         timelog["bH"] = self.bH
         timelog["b_prime_H"] = args.bH_prime
         timelog["e_max"] = self.Charlie_eMax
-        timelog["forg_prob"] = forg_prob
-        timelog["rep_prob"] = rep_prob
         timelog["mode"] = self.mode
 
         with open(args.config_network, 'r') as f:
@@ -68,7 +63,23 @@ class QDSHandlerAlice():
             self.Bob_host = network['ip']['bob']
             self.Bob_port = int(network['port']['qds_bob'])
         
-        
+    async def send_END(self, name, host, port):
+        """Notify Bob/Charlie that Alice is aborting the protocol."""
+        try:
+            reader, writer = await asyncio.open_connection(host, port)
+            logging.info(f"[Alice][TCP] Connected to {name} to send END.")
+
+            await assend(writer, {"type": "END"})
+            logging.info(f"[Alice][TCP] Sent END request to {name}.")
+
+            writer.close()
+            await writer.wait_closed()
+
+        except Exception as e:
+            logging.error(f"[Alice][TCP] Failed to send END to {name}: {e}")
+            print(f"Failed to send END to {name}: {e}")
+
+
     async def run_QKD(self, name, host, port):
         t = time.perf_counter()
         socket_reader, socket_writer = await send_start_command(self.mode, path_config)
@@ -142,6 +153,33 @@ class QDSHandlerAlice():
         logging.info(f"Bob's ip adress: {self.Bob_host}")
         logging.info(f"Bob's port: {self.Bob_port}")
 
+        if self.Charlie_eMax < 0 or self.Charlie_eMax > self.n / 2:
+            logging.error(
+                f"[Alice] Invalid eMax={self.Charlie_eMax}: "
+                f"must satisfy eMax <= n/2 = {self.n / 2}."
+            )
+            print(
+                f"Invalid eMax={self.Charlie_eMax}: "
+                f"must satisfy eMax <= n/2 = {self.n / 2}. "
+                f"Aborting protocol."
+            )
+
+            # Notify both parties
+            await asyncio.gather(
+                self.send_END("Charlie", self.Charlie_host, self.Charlie_port),
+                self.send_END("Bob", self.Bob_host, self.Bob_port)
+            )
+
+            return
+
+        forg_prob = forgery_prob(self.n, len(self.message_bits), self.bH, e_max=self.Charlie_eMax)
+        rep_prob = repudiation_prob(self.n, len(self.message_bits), self.bH, bH_prime=args.bH_prime, e_max=self.Charlie_eMax)
+        print(forg_prob, rep_prob)
+        logging.info(f"[Alice] ɛ-forgery: {forg_prob}, ɛ-repudiation: {rep_prob}")
+        print(f"[Alice] ɛ-forgery: {forg_prob}, ɛ-repudiation: {rep_prob}")
+        timelog["forg_prob"] = forg_prob
+        timelog["rep_prob"] = rep_prob
+
         ### QKD with Charlie ###
         logging.info("=============== [Alice] QKD with Charlie ===============")
         print("Starting QKD with Charlie")
@@ -184,6 +222,8 @@ if __name__ == "__main__":
                         help="Operation mode: 'hwsim', or 'real'")
     parser.add_argument("-p", "--path_config", type=str, default="config_test/sim/alice/qds.json",
                         help="Path to FIFO config file (default: config_test/sim/alice/qds.json)")
+    parser.add_argument("-s", "--batch_size", type=int, default=3000,
+                        help="batch size when reading qubits (default: 3000)")
     parser.add_argument("-n", "--num_blocks", type=int, default=52,
                         help="Number of blocks (default: 10)")
     parser.add_argument("-bH", "--bH", type=int, default=33,
@@ -191,7 +231,7 @@ if __name__ == "__main__":
     parser.add_argument("-bH_p", "--bH_prime", type=int, default=21,
                             help="bH_prime as defined in the paper (default: 10)")
     parser.add_argument("-e", "--eMax", type=int, default=21,
-                        help="Charlie's error tolerance")
+                        help="Charlie's error tolerance (between 0 and n/2)")
     parser.add_argument("-c", "--config_network", type=str, default="config/network.json",
                         help="Path to network config file")
     #parser.add_argument("-q", "--qber", type=float, default=0.055,

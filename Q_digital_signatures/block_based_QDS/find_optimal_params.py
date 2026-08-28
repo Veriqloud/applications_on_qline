@@ -86,7 +86,7 @@ def l_BobCharlie(n, bH, b_prime_H):
     return 3*n*bH + n*math.log2(n) + 5*b_prime_H
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Alice Protocol Runner")
+    parser = argparse.ArgumentParser(description="Find Optimal Parameters for block-based QDS")
     parser.add_argument("-f", "--func",
                         type=str,
                         default="l_total",

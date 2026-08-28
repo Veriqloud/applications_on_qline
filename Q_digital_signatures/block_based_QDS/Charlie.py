@@ -184,6 +184,10 @@ class QDSHandlerCharlie:
             print("All connections completed, closing server.")
             all_connections_done.set()
 
+        elif request["type"] == "END":
+            logging.info("[Charlie] Received command to close server, cause unknown. Closing server.")
+            print("[Charlie] eceived command to close server, cause unknown. Closing server.")
+            all_connections_done.set()
 
 if __name__ == "__main__":
 
