@@ -457,11 +457,11 @@ The implementations are based on information-theoretically secure primitives, as
 
 For the block-based QDS implementation, the relevant security bounds are
 
-$$\varepsilon_{\mathrm{for}} = \Xi\left(\frac{n}{2}-e_{max},\frac{n}{2},b_M2^{1-b_H}\right),$$
+$$\varepsilon_{\mathrm{for}} = \Xi(\frac{n}{2}-e_{max},\frac{n}{2},b_M2^{1-b_H}),$$
 
 and
 
-$$\varepsilon_{\mathrm{rep}}=\max\left\{\prod_{i=0}^{e_{max}}\frac{n/2-i}{n-i},\frac{b_M+4nb_H}{2^{b'_H-1}}\right\}.$$
+$$\varepsilon_{\mathrm{rep}}=\max\{\prod_{i=0}^{e_{max}}\frac{n/2-i}{n-i},\frac{b_M+4nb_H}{2^{b'_H-1}}\}.$$
 
 For the sequence-based implementation,
 
@@ -469,7 +469,7 @@ $$\varepsilon_{\mathrm{for}}=\frac{b_M}{2^{b_H-1}},$$
 
 and
 
-$$\varepsilon_{\mathrm{rep}}=\max\left\{\frac{2b_H+b_M}{2^{b'_H-1}},\frac{3b_H}{2^{b'_H-1}}\right\}.$$
+$$\varepsilon_{\mathrm{rep}}=\max\{\frac{2b_H+b_M}{2^{b'_H-1}},\frac{3b_H}{2^{b'_H-1}}\}.$$
 
 The numerical optimization used in this implementation requires
 
